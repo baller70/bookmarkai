@@ -1,0 +1,58 @@
+{
+  "navigation": {
+    "dashboard": "仪表板",
+    "settings": "设置",
+    "marketplace": "市场",
+    "analytics": "分析",
+    "profile": "个人资料",
+    "billing": "计费",
+    "logout": "退出登录"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "update": "更新",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "warning": "警告",
+    "info": "信息",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否",
+    "close": "关闭",
+    "open": "打开",
+    "search": "搜索",
+    "enable": "启用",
+    "disable": "禁用",
+    "reset": "重置"
+  },
+  "autoProcessing": {
+    "title": "自动处理控制面板",
+    "description": "配置 AI LinkPilot 如何自动处理您的书签和链接",
+    "history": "历史记录",
+    "unsavedChanges": "您有未保存的更改",
+    "intake": {
+      "title": "输入范围",
+      "description": "控制哪些类型的链接添加触发自动处理",
+      "manualSaves": "手动保存",
+      "bulkUploads": "批量上传",
+      "browserCapture": "浏览器捕获",
+      "pauseProcessing": "暂停所有处理"
+    },
+    "tagging": {
+      "title": "自动标记和元数据",
+      "description": "配置自动标记生成和内容分析",
+      "enableTagging": "启用自动标记",
+      "confidence": "置信度阈值",
+      "tagStyle": "标记样式",
+      "languageMode": "语言模式",
+      "synonymMapping": "同义词映射",
+      "normalization": "标准化",
+      "manualReview": "手动审核"
+    }
+  }
+}

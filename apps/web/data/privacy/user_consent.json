@@ -1,0 +1,17 @@
+[
+  {
+    "user_id": "dev-user-123",
+    "consent_version": "v1.1",
+    "consents": {
+      "essential": true,
+      "data_processing": true,
+      "cookies": true,
+      "analytics": true,
+      "marketing": false
+    },
+    "ip_address": "::1",
+    "user_agent": "curl/8.7.1",
+    "timestamp": "2025-07-12T10:03:38.704Z",
+    "updated_at": "2025-07-12T10:03:38.704Z"
+  }
+]

@@ -1,0 +1,130 @@
+{
+  "navigation": {
+    "dashboard": "Tableau de Bord",
+    "settings": "Paramètres",
+    "marketplace": "Marché",
+    "analytics": "Analyses",
+    "profile": "Profil",
+    "billing": "Facturation",
+    "logout": "Déconnexion"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "warning": "Avertissement",
+    "info": "Information",
+    "confirm": "Confirmer",
+    "yes": "Oui",
+    "no": "Non",
+    "close": "Fermer",
+    "open": "Ouvrir",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "sort": "Trier",
+    "export": "Exporter",
+    "import": "Importer",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "finish": "Terminer",
+    "enable": "Activer",
+    "disable": "Désactiver"
+  },
+  "autoProcessing": {
+    "title": "Traitement Automatique",
+    "description": "Analysez et organisez automatiquement vos liens avec un traitement alimenté par l'IA",
+    "enabled": "Traitement automatique activé",
+    "disabled": "Traitement automatique désactivé",
+    "settings": {
+      "title": "Paramètres de Traitement Automatique",
+      "description": "Configurez comment vos liens sont automatiquement traités",
+      "enableAutoProcessing": "Activer le Traitement Automatique",
+      "enableAutoProcessingDescription": "Traiter automatiquement les nouveaux liens lorsqu'ils sont ajoutés",
+      "processingLanguage": "Langue de Traitement",
+      "processingLanguageDescription": "Langue à utiliser pour l'analyse de contenu et la génération d'étiquettes",
+      "tagStyle": "Style d'Étiquettes",
+      "tagStyleDescription": "Comment les étiquettes doivent être formatées",
+      "tagStyles": {
+        "singular": "Singulier (étiquette, lien)",
+        "plural": "Pluriel (étiquettes, liens)",
+        "camelCase": "Camel Case (nomÉtiquette, urlLien)",
+        "kebabCase": "Kebab Case (nom-étiquette, url-lien)"
+      },
+      "contentAnalysis": "Analyse de Contenu",
+      "contentAnalysisDescription": "Analyser le contenu des pages pour une meilleure catégorisation",
+      "enableContentAnalysis": "Activer l'Analyse de Contenu",
+      "enableContentAnalysisDescription": "Extraire et analyser le contenu des pages pour de meilleures insights"
+    },
+    "status": {
+      "processing": "Traitement en cours...",
+      "completed": "Traitement terminé",
+      "failed": "Traitement échoué",
+      "queued": "En file d'attente pour traitement",
+      "skipped": "Ignoré",
+      "error": "Erreur survenue pendant le traitement"
+    },
+    "errors": {
+      "invalidUrl": "URL invalide fournie",
+      "processingFailed": "Traitement échoué",
+      "networkError": "Erreur réseau survenue",
+      "rateLimitExceeded": "Limite de débit dépassée",
+      "insufficientContent": "Contenu insuffisant pour l'analyse",
+      "languageNotSupported": "Langue non supportée"
+    }
+  },
+  "languages": {
+    "title": "Langues",
+    "description": "Paramètres de langue et de localisation",
+    "currentLanguage": "Langue Actuelle",
+    "selectLanguage": "Sélectionner la Langue",
+    "autoDetect": "Détecter automatiquement",
+    "autoDetectDescription": "Détecter automatiquement la langue depuis les paramètres du navigateur",
+    "languageNames": {
+      "en": "Anglais",
+      "es": "Espagnol",
+      "fr": "Français",
+      "de": "Allemand",
+      "it": "Italien",
+      "pt": "Portugais",
+      "ru": "Russe",
+      "ja": "Japonais",
+      "ko": "Coréen",
+      "zh": "Chinois",
+      "ar": "Arabe",
+      "hi": "Hindi"
+    }
+  },
+  "forms": {
+    "validation": {
+      "required": "Ce champ est obligatoire",
+      "email": "Veuillez saisir une adresse email valide",
+      "url": "Veuillez saisir une URL valide",
+      "minLength": "La longueur minimale est {{min}} caractères",
+      "maxLength": "La longueur maximale est {{max}} caractères",
+      "pattern": "Veuillez saisir un format valide",
+      "numeric": "Veuillez saisir un nombre valide",
+      "password": "Le mot de passe doit contenir au moins 8 caractères",
+      "passwordConfirm": "Les mots de passe ne correspondent pas"
+    },
+    "placeholders": {
+      "search": "Rechercher...",
+      "email": "Saisissez votre email",
+      "password": "Saisissez votre mot de passe",
+      "name": "Saisissez votre nom",
+      "title": "Saisissez un titre",
+      "description": "Saisissez une description",
+      "url": "Saisissez une URL",
+      "tags": "Saisissez des étiquettes",
+      "notes": "Saisissez des notes"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+[
+  {
+    "id": "dev-user-123",
+    "email": "dev-user-123@example.com",
+    "created_at": "2025-07-12T10:02:58.145Z",
+    "updated_at": "2025-07-12T10:04:01.884Z",
+    "email_verified": false,
+    "phone_verified": false,
+    "two_factor_enabled": false,
+    "notification_preferences": {
+      "email_notifications": true,
+      "push_notifications": true,
+      "marketing_emails": false,
+      "product_updates": true,
+      "security_alerts": true
+    },
+    "privacy_settings": {
+      "profile_visibility": "private",
+      "data_sharing": false,
+      "analytics_tracking": true,
+      "personalized_ads": false
+    },
+    "subscription": {
+      "plan": "pro",
+      "status": "trial",
+      "billing_cycle": "monthly",
+      "next_billing_date": "2025-08-12T04:00:00.000Z",
+      "features": [
+        "unlimited_bookmarks",
+        "ai_categorization",
+        "advanced_search",
+        "bulk_operations",
+        "api_access"
+      ]
+    },
+    "usage_stats": {
+      "bookmarks_count": 0,
+      "categories_count": 0,
+      "tags_count": 0,
+      "ai_processing_count": 0,
+      "storage_used_mb": 0,
+      "api_calls_count": 0
+    },
+    "preferences": {
+      "auto_categorization": true,
+      "auto_tagging": true,
+      "ai_suggestions": true,
+      "duplicate_detection": true,
+      "bookmark_sync": true,
+      "export_format": "json",
+      "items_per_page": 20,
+      "sort_order": "newest"
+    }
+  }
+]

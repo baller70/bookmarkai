@@ -1,0 +1,56 @@
+[
+  {
+    "id": "10abd2a3-7131-4ed8-9050-d43227a0a1f2",
+    "user_id": "dev-user-123",
+    "plan": "free",
+    "status": "cancelled",
+    "billing_cycle": "monthly",
+    "price_per_cycle": 0,
+    "currency": "USD",
+    "current_period_start": "2025-07-12T10:03:11.120Z",
+    "current_period_end": "2025-08-12T04:00:00.000Z",
+    "cancel_at_period_end": false,
+    "created_at": "2025-07-12T10:03:11.120Z",
+    "updated_at": "2025-07-12T10:04:01.884Z",
+    "features": [
+      "basic_bookmarks",
+      "basic_categories",
+      "basic_search"
+    ],
+    "usage_limits": {
+      "bookmarks": 100,
+      "ai_processing": 10,
+      "storage_mb": 100,
+      "api_calls": 1000
+    },
+    "cancelled_at": "2025-07-12T10:04:01.884Z"
+  },
+  {
+    "id": "42c25154-954d-4d9e-9bcc-8812879ff53c",
+    "user_id": "dev-user-123",
+    "plan": "pro",
+    "status": "trial",
+    "billing_cycle": "monthly",
+    "price_per_cycle": 9.99,
+    "currency": "USD",
+    "current_period_start": "2025-07-12T10:04:01.884Z",
+    "current_period_end": "2025-08-12T04:00:00.000Z",
+    "cancel_at_period_end": false,
+    "created_at": "2025-07-12T10:04:01.884Z",
+    "updated_at": "2025-07-12T10:04:01.884Z",
+    "features": [
+      "unlimited_bookmarks",
+      "ai_categorization",
+      "advanced_search",
+      "bulk_operations",
+      "api_access"
+    ],
+    "usage_limits": {
+      "bookmarks": 10000,
+      "ai_processing": 1000,
+      "storage_mb": 1000,
+      "api_calls": 10000
+    },
+    "trial_ends_at": "2025-07-26T10:04:01.884Z"
+  }
+]

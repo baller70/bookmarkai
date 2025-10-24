@@ -1,0 +1,130 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "marketplace": "Marketplace",
+    "analytics": "Analytics",
+    "profile": "Profile",
+    "billing": "Billing",
+    "logout": "Logout"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "open": "Open",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "export": "Export",
+    "import": "Import",
+    "reset": "Reset",
+    "apply": "Apply",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Finish",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "autoProcessing": {
+    "title": "Auto-Processing",
+    "description": "Automatically analyze and organize your links with AI-powered processing",
+    "enabled": "Auto-processing enabled",
+    "disabled": "Auto-processing disabled",
+    "settings": {
+      "title": "Auto-Processing Settings",
+      "description": "Configure how your links are automatically processed",
+      "enableAutoProcessing": "Enable Auto-Processing",
+      "enableAutoProcessingDescription": "Automatically process new links when they are added",
+      "processingLanguage": "Processing Language",
+      "processingLanguageDescription": "Language to use for content analysis and tag generation",
+      "tagStyle": "Tag Style",
+      "tagStyleDescription": "How tags should be formatted",
+      "tagStyles": {
+        "singular": "Singular (tag, link)",
+        "plural": "Plural (tags, links)",
+        "camelCase": "Camel Case (tagName, linkUrl)",
+        "kebabCase": "Kebab Case (tag-name, link-url)"
+      },
+      "contentAnalysis": "Content Analysis",
+      "contentAnalysisDescription": "Analyze page content for better categorization",
+      "enableContentAnalysis": "Enable Content Analysis",
+      "enableContentAnalysisDescription": "Extract and analyze page content for better insights"
+    },
+    "status": {
+      "processing": "Processing...",
+      "completed": "Processing completed",
+      "failed": "Processing failed",
+      "queued": "Queued for processing",
+      "skipped": "Skipped",
+      "error": "Error occurred during processing"
+    },
+    "errors": {
+      "invalidUrl": "Invalid URL provided",
+      "processingFailed": "Processing failed",
+      "networkError": "Network error occurred",
+      "rateLimitExceeded": "Rate limit exceeded",
+      "insufficientContent": "Insufficient content for analysis",
+      "languageNotSupported": "Language not supported"
+    }
+  },
+  "languages": {
+    "title": "Languages",
+    "description": "Language and localization settings",
+    "currentLanguage": "Current Language",
+    "selectLanguage": "Select Language",
+    "autoDetect": "Auto-detect",
+    "autoDetectDescription": "Automatically detect language from browser settings",
+    "languageNames": {
+      "en": "English",
+      "es": "Español",
+      "fr": "Français",
+      "de": "Deutsch",
+      "it": "Italiano",
+      "pt": "Português",
+      "ru": "Русский",
+      "ja": "日本語",
+      "ko": "한국어",
+      "zh": "中文",
+      "ar": "العربية",
+      "hi": "हिन्दी"
+    }
+  },
+  "forms": {
+    "validation": {
+      "required": "This field is required",
+      "email": "Please enter a valid email address",
+      "url": "Please enter a valid URL",
+      "minLength": "Minimum length is {{min}} characters",
+      "maxLength": "Maximum length is {{max}} characters",
+      "pattern": "Please enter a valid format",
+      "numeric": "Please enter a valid number",
+      "password": "Password must be at least 8 characters long",
+      "passwordConfirm": "Passwords do not match"
+    },
+    "placeholders": {
+      "search": "Search...",
+      "email": "Enter your email",
+      "password": "Enter your password",
+      "name": "Enter your name",
+      "title": "Enter a title",
+      "description": "Enter a description",
+      "url": "Enter a URL",
+      "tags": "Enter tags",
+      "notes": "Enter notes"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+// Prisma Schema for Bookmark Marketplace
+// Add this to your main schema.prisma file
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  avatar    String?
+  stripeCustomerId String? @unique
+  stripeAccountId  String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Marketplace relationships
+  listings  Listing[]
+  orders    Order[]   @relation("BuyerOrders")
+  reviews   Review[]
+  payouts   Payout[]
+
+  @@map("users")
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  sellerId    String
+  title       String
+  description String
+  thumbnail   String
+  priceCents  Int
+  currency    String   @default("USD")
+  category    String
+  tags        String[]
+  bookmarkData Json    // Stores BookmarkData as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  ratingAvg   Float    @default(0)
+  ratingCount Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Relationships
+  seller   User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+  reviews  Review[]
+
+  // Indexes
+  @@index([sellerId])
+  @@index([category])
+  @@index([priceCents])
+  @@index([ratingAvg])
+  @@index([createdAt])
+  @@index([isActive])
+  @@map("listings")
+}
+
+model Order {
+  id              String   @id @default(uuid())
+  buyerId         String
+  listingId       String
+  totalCents      Int
+  currency        String   @default("USD")
+  status          String   // OrderStatus enum
+  paymentIntentId String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  buyer   User    @relation("BuyerOrders", fields: [buyerId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  // Indexes
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  listingId String
+  rating    Int      // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  // Constraints
+  @@unique([userId, listingId]) // One review per user per listing
+  @@index([listingId])
+  @@index([rating])
+  @@index([createdAt])
+  @@map("reviews")
+}
+
+model Payout {
+  id               String   @id @default(uuid())
+  sellerId         String
+  amountCents      Int
+  currency         String   @default("USD")
+  status           String   // PayoutStatus enum
+  stripeTransferId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payouts")
+}

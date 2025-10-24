@@ -1,0 +1,151 @@
+[
+  {
+    "id": "df2af379-ff2c-4d5b-8a41-67a04650aa08",
+    "user_id": "dev-user-123",
+    "type": "single",
+    "status": "completed",
+    "priority": "normal",
+    "created_at": "2025-07-12T09:48:12.851Z",
+    "updated_at": "2025-07-12T09:48:24.117Z",
+    "progress": {
+      "total": 1,
+      "processed": 1,
+      "failed": 0
+    },
+    "input": {
+      "items": [
+        {
+          "id": "83d82a3a-8e58-45a2-8164-1319dc049dbc",
+          "url": "https://example.com",
+          "title": "Test Article",
+          "content": "This is a test article about AI and machine learning."
+        }
+      ],
+      "settings": {
+        "auto_categorize": true,
+        "auto_tag": true,
+        "extract_content": false,
+        "generate_summary": true,
+        "detect_language": true,
+        "quality_score": true,
+        "duplicate_detection": true,
+        "sentiment_analysis": false,
+        "keyword_extraction": true,
+        "content_enhancement": false,
+        "confidence_threshold": 0.5,
+        "max_tags": 8,
+        "max_summary_length": 300,
+        "language_preference": "en"
+      }
+    },
+    "estimated_duration": 5000,
+    "started_at": "2025-07-12T09:48:12.930Z",
+    "completed_at": "2025-07-12T09:48:24.116Z",
+    "actual_duration": 11186,
+    "output": {
+      "results": [
+        {
+          "item_id": "83d82a3a-8e58-45a2-8164-1319dc049dbc",
+          "status": "success",
+          "original_url": "https://example.com",
+          "processing_time_ms": 11006,
+          "warnings": [],
+          "ai_analysis": {
+            "category": {
+              "name": "Technology",
+              "confidence": 1,
+              "reasoning": "The content mentions AI and machine learning which are technology topics."
+            },
+            "tags": [
+              {
+                "name": "AI",
+                "confidence": 1,
+                "reasoning": "The content mentions AI."
+              },
+              {
+                "name": "Machine Learning",
+                "confidence": 1,
+                "reasoning": "The content mentions machine learning."
+              },
+              {
+                "name": "Technology",
+                "confidence": 1,
+                "reasoning": "The content is related to technology."
+              }
+            ],
+            "summary": {
+              "text": "The article is a test content about AI and machine learning.",
+              "key_points": [
+                "AI",
+                "Machine Learning"
+              ],
+              "confidence": 1
+            },
+            "language": {
+              "detected": "English",
+              "confidence": 1
+            },
+            "quality_score": {
+              "score": 20,
+              "factors": {
+                "content_depth": 0.1,
+                "readability": 1,
+                "authority": 0.1,
+                "freshness": 1
+              },
+              "reasoning": "The content is very short and lacks depth, but it is readable and fresh."
+            },
+            "sentiment": {
+              "score": 0,
+              "label": "neutral",
+              "confidence": 1
+            },
+            "keywords": {
+              "primary": [
+                "AI",
+                "Machine Learning"
+              ],
+              "secondary": [],
+              "entities": []
+            },
+            "content_type": {
+              "type": "article",
+              "confidence": 1
+            }
+          },
+          "duplicate_check": {
+            "status": "unique",
+            "matches": []
+          }
+        }
+      ],
+      "summary": {
+        "total_items": 1,
+        "successful": 1,
+        "failed": 0,
+        "skipped": 0,
+        "processing_time_ms": 11178,
+        "categories_found": {
+          "Technology": 1
+        },
+        "tags_generated": {
+          "AI": 1,
+          "Machine Learning": 1,
+          "Technology": 1
+        },
+        "languages_detected": {
+          "English": 1
+        },
+        "quality_distribution": {
+          "high": 0,
+          "medium": 0,
+          "low": 1
+        },
+        "duplicates_found": 0,
+        "content_types": {
+          "article": 1
+        }
+      }
+    }
+  }
+]

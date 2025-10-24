@@ -1,0 +1,130 @@
+{
+  "navigation": {
+    "dashboard": "Panel de Control",
+    "settings": "Configuración",
+    "marketplace": "Mercado",
+    "analytics": "Análisis",
+    "profile": "Perfil",
+    "billing": "Facturación",
+    "logout": "Cerrar Sesión"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "update": "Actualizar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "warning": "Advertencia",
+    "info": "Información",
+    "confirm": "Confirmar",
+    "yes": "Sí",
+    "no": "No",
+    "close": "Cerrar",
+    "open": "Abrir",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "export": "Exportar",
+    "import": "Importar",
+    "reset": "Restablecer",
+    "apply": "Aplicar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "finish": "Finalizar",
+    "enable": "Habilitar",
+    "disable": "Deshabilitar"
+  },
+  "autoProcessing": {
+    "title": "Procesamiento Automático",
+    "description": "Analiza y organiza automáticamente tus enlaces con procesamiento impulsado por IA",
+    "enabled": "Procesamiento automático habilitado",
+    "disabled": "Procesamiento automático deshabilitado",
+    "settings": {
+      "title": "Configuración de Procesamiento Automático",
+      "description": "Configura cómo se procesan automáticamente tus enlaces",
+      "enableAutoProcessing": "Habilitar Procesamiento Automático",
+      "enableAutoProcessingDescription": "Procesar automáticamente nuevos enlaces cuando se agreguen",
+      "processingLanguage": "Idioma de Procesamiento",
+      "processingLanguageDescription": "Idioma a usar para análisis de contenido y generación de etiquetas",
+      "tagStyle": "Estilo de Etiquetas",
+      "tagStyleDescription": "Cómo deben formatearse las etiquetas",
+      "tagStyles": {
+        "singular": "Singular (etiqueta, enlace)",
+        "plural": "Plural (etiquetas, enlaces)",
+        "camelCase": "Camel Case (nombreEtiqueta, urlEnlace)",
+        "kebabCase": "Kebab Case (nombre-etiqueta, url-enlace)"
+      },
+      "contentAnalysis": "Análisis de Contenido",
+      "contentAnalysisDescription": "Analizar contenido de páginas para mejor categorización",
+      "enableContentAnalysis": "Habilitar Análisis de Contenido",
+      "enableContentAnalysisDescription": "Extraer y analizar contenido de páginas para mejores insights"
+    },
+    "status": {
+      "processing": "Procesando...",
+      "completed": "Procesamiento completado",
+      "failed": "Procesamiento fallido",
+      "queued": "En cola para procesamiento",
+      "skipped": "Omitido",
+      "error": "Error ocurrido durante el procesamiento"
+    },
+    "errors": {
+      "invalidUrl": "URL inválida proporcionada",
+      "processingFailed": "Procesamiento fallido",
+      "networkError": "Error de red ocurrido",
+      "rateLimitExceeded": "Límite de velocidad excedido",
+      "insufficientContent": "Contenido insuficiente para análisis",
+      "languageNotSupported": "Idioma no soportado"
+    }
+  },
+  "languages": {
+    "title": "Idiomas",
+    "description": "Configuración de idioma y localización",
+    "currentLanguage": "Idioma Actual",
+    "selectLanguage": "Seleccionar Idioma",
+    "autoDetect": "Detectar automáticamente",
+    "autoDetectDescription": "Detectar automáticamente idioma desde configuración del navegador",
+    "languageNames": {
+      "en": "Inglés",
+      "es": "Español",
+      "fr": "Francés",
+      "de": "Alemán",
+      "it": "Italiano",
+      "pt": "Portugués",
+      "ru": "Ruso",
+      "ja": "Japonés",
+      "ko": "Coreano",
+      "zh": "Chino",
+      "ar": "Árabe",
+      "hi": "Hindi"
+    }
+  },
+  "forms": {
+    "validation": {
+      "required": "Este campo es obligatorio",
+      "email": "Por favor ingresa una dirección de email válida",
+      "url": "Por favor ingresa una URL válida",
+      "minLength": "La longitud mínima es {{min}} caracteres",
+      "maxLength": "La longitud máxima es {{max}} caracteres",
+      "pattern": "Por favor ingresa un formato válido",
+      "numeric": "Por favor ingresa un número válido",
+      "password": "La contraseña debe tener al menos 8 caracteres",
+      "passwordConfirm": "Las contraseñas no coinciden"
+    },
+    "placeholders": {
+      "search": "Buscar...",
+      "email": "Ingresa tu email",
+      "password": "Ingresa tu contraseña",
+      "name": "Ingresa tu nombre",
+      "title": "Ingresa un título",
+      "description": "Ingresa una descripción",
+      "url": "Ingresa una URL",
+      "tags": "Ingresa etiquetas",
+      "notes": "Ingresa notas"
+    }
+  }
+}

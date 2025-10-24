@@ -1,0 +1,80 @@
+[
+  {
+    "folderId": "technology",
+    "level": "director",
+    "order": 0,
+    "createdAt": "2025-09-08T20:58:27.024Z",
+    "updatedAt": "2025-09-08T20:58:27.024Z"
+  },
+  {
+    "folderId": "General",
+    "level": "teams",
+    "order": 1,
+    "createdAt": "2025-09-08T20:58:27.024Z",
+    "updatedAt": "2025-09-08T20:58:27.024Z"
+  },
+  {
+    "folderId": "ae3fe2d2-3717-423e-b303-c57afb4592a1",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "133f4954-f229-4403-b3bd-774a0dffa166",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "5f78d85e-ab5a-4515-a005-c9d70843aeeb",
+    "level": "teams",
+    "order": 1,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "0a6f6f63-06b1-4fdb-b835-4b437fad9bc7",
+    "level": "teams",
+    "order": 2,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "2e776b26-a111-470e-ad11-2676120735d2",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "technology",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "Testing",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  },
+  {
+    "folderId": "General",
+    "level": "collaborators",
+    "order": 0,
+    "user_id": "dev-user-123",
+    "createdAt": "2025-09-08T21:01:32.009Z",
+    "updatedAt": "2025-09-08T21:01:32.009Z"
+  }
+]

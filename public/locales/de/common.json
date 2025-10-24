@@ -1,0 +1,61 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "settings": "Einstellungen",
+    "marketplace": "Marktplatz",
+    "analytics": "Analysen",
+    "profile": "Profil",
+    "billing": "Abrechnung",
+    "logout": "Abmelden"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "update": "Aktualisieren",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "warning": "Warnung",
+    "info": "Information",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein",
+    "close": "Schließen",
+    "open": "Öffnen",
+    "search": "Suchen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren"
+  },
+  "autoProcessing": {
+    "title": "Automatische Verarbeitung",
+    "description": "Analysieren und organisieren Sie Ihre Links automatisch mit KI-gestützter Verarbeitung",
+    "enabled": "Automatische Verarbeitung aktiviert",
+    "disabled": "Automatische Verarbeitung deaktiviert",
+    "settings": {
+      "title": "Einstellungen für Automatische Verarbeitung",
+      "description": "Konfigurieren Sie, wie Ihre Links automatisch verarbeitet werden",
+      "enableAutoProcessing": "Automatische Verarbeitung aktivieren",
+      "enableAutoProcessingDescription": "Neue Links automatisch verarbeiten, wenn sie hinzugefügt werden",
+      "processingLanguage": "Verarbeitungssprache",
+      "processingLanguageDescription": "Sprache für Inhaltsanalyse und Tag-Generierung",
+      "tagStyle": "Tag-Stil",
+      "tagStyleDescription": "Wie Tags formatiert werden sollen"
+    },
+    "status": {
+      "processing": "Verarbeitung...",
+      "completed": "Verarbeitung abgeschlossen",
+      "failed": "Verarbeitung fehlgeschlagen",
+      "error": "Fehler bei der Verarbeitung aufgetreten"
+    }
+  },
+  "languages": {
+    "title": "Sprachen",
+    "description": "Sprach- und Lokalisierungseinstellungen",
+    "currentLanguage": "Aktuelle Sprache",
+    "selectLanguage": "Sprache auswählen",
+    "autoDetect": "Automatisch erkennen"
+  }
+}

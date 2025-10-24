@@ -1,0 +1,115 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2017"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "incremental": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "assumeChangesOnlyAffectDirectDependencies": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "./src/components/*",
+        "./components/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/src/*": [
+        "./src/*"
+      ],
+      "@/types/*": [
+        "./src/types/*",
+        "../backend/types/*"
+      ],
+      "@bookaimark/shared": [
+        "../../packages/shared"
+      ],
+      "@bookaimark/ui": [
+        "../../packages/ui"
+      ],
+      "@bookaimark/ai-copilot": [
+        "../../features/ai-copilot"
+      ],
+      "@bookaimark/analytics": [
+        "../../features/analytics"
+      ],
+      "@bookaimark/auth": [
+        "../../features/auth"
+      ],
+      "@bookaimark/dashboard": [
+        "../../features/dashboard"
+      ],
+      "@bookaimark/dna-profile": [
+        "../../features/dna-profile"
+      ],
+      "@bookaimark/marketplace": [
+        "../../features/marketplace"
+      ],
+      "@bookaimark/oracle": [
+        "../../features/oracle"
+      ],
+      "@bookaimark/notifications": [
+        "../../features/notifications"
+      ],
+      "@bookaimark/pomodoro": [
+        "../../features/pomodoro"
+      ],
+      "@bookaimark/kanban": [
+        "../../features/kanban"
+      ],
+      "@bookaimark/simple-board": [
+        "../../features/simple-board"
+      ],
+      "@bookaimark/media": [
+        "../../features/media"
+      ],
+      "@bookaimark/timeline": [
+        "../../features/timeline"
+      ],
+      "@bookaimark/playbooks": [
+        "../../features/playbooks"
+      ],
+      "@bookaimark/settings": [
+        "../../features/settings"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "backend/**/*",
+    "frontend/**/*",
+    "next-env.d.ts",
+    ".build/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "comments.disabled"
+  ]
+}

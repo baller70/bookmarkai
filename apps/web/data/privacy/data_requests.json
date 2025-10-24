@@ -1,0 +1,12 @@
+[
+  {
+    "id": "025a53e3-1dbf-46e9-9874-b5f0f4363e98",
+    "user_id": "dev-user-123",
+    "type": "export",
+    "status": "processing",
+    "details": "User requested complete data export for GDPR compliance",
+    "requested_at": "2025-07-12T10:03:46.137Z",
+    "processed_at": "2025-07-12T10:03:46.137Z",
+    "processing_notes": "Data export initiated"
+  }
+]

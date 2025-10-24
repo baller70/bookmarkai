@@ -1,0 +1,17 @@
+[
+  {
+    "id": "17e95f7b-764a-4ff0-b1d7-f1c32d1ff10b",
+    "user_id": "dev-user-123",
+    "job_id": "df2af379-ff2c-4d5b-8a41-67a04650aa08",
+    "feedback_type": "accuracy",
+    "rating": 4,
+    "category_feedback": {
+      "original_category": "AI Tools",
+      "suggested_category": "AI Tools",
+      "was_correct": true,
+      "confidence_rating": 4
+    },
+    "comments": "Good categorization, tags were relevant",
+    "created_at": "2025-07-12T09:48:53.271Z"
+  }
+]

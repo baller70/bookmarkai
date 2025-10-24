@@ -1,0 +1,222 @@
+[
+  {
+    "id": "1752190975977",
+    "name": "Test Category",
+    "description": "A test category",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-10T23:42:55.977Z",
+    "updatedAt": "2025-07-10T23:42:55.977Z"
+  },
+  {
+    "id": "1752191186306",
+    "name": "LLM MODELS",
+    "description": "AI and Machine Learning Models",
+    "color": "#8B5CF6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-10T23:46:26.306Z",
+    "updatedAt": "2025-07-11T11:18:20.483Z"
+  },
+  {
+    "id": "1752231118990",
+    "name": "PLANNING",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T10:51:58.990Z",
+    "updatedAt": "2025-07-11T11:18:08.881Z"
+  },
+  {
+    "id": "1752232908658",
+    "name": "AUTOMATION",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T11:21:48.658Z",
+    "updatedAt": "2025-07-11T11:21:48.658Z"
+  },
+  {
+    "id": "1752235357726",
+    "name": "WORDPRESS",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T12:02:37.726Z",
+    "updatedAt": "2025-07-11T12:02:37.726Z"
+  },
+  {
+    "id": "1752240701072",
+    "name": "AI TOOLS",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T13:31:41.072Z",
+    "updatedAt": "2025-07-11T13:31:41.072Z"
+  },
+  {
+    "id": "1752241072047",
+    "name": "EBOOKS/AUDIOBOOK",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T13:37:52.047Z",
+    "updatedAt": "2025-07-11T13:37:52.047Z"
+  },
+  {
+    "id": "1752257012701",
+    "name": "VIDEO PRODUCTION",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T18:03:32.701Z",
+    "updatedAt": "2025-07-11T18:03:32.701Z"
+  },
+  {
+    "id": "1752257312572",
+    "name": "SOCIAL MEDIA",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T18:08:32.572Z",
+    "updatedAt": "2025-07-11T18:08:32.574Z"
+  },
+  {
+    "id": "1752257636712",
+    "name": "BLOG",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T18:13:56.712Z",
+    "updatedAt": "2025-07-11T18:13:56.712Z"
+  },
+  {
+    "id": "1752258609318",
+    "name": "MARKETING",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T18:30:09.318Z",
+    "updatedAt": "2025-07-11T18:30:09.320Z"
+  },
+  {
+    "id": "1752258931407",
+    "name": "EMAIL MANAGEMENT",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T18:35:31.407Z",
+    "updatedAt": "2025-07-11T18:35:31.408Z"
+  },
+  {
+    "id": "1752260478164",
+    "name": "COMMUNICATION",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:01:18.164Z",
+    "updatedAt": "2025-07-11T19:01:18.164Z"
+  },
+  {
+    "id": "1752261034600",
+    "name": "ECOMMERENCE",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:10:34.600Z",
+    "updatedAt": "2025-07-11T19:10:34.600Z"
+  },
+  {
+    "id": "1752261054798",
+    "name": "ECOMMERCE",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:10:54.798Z",
+    "updatedAt": "2025-07-11T19:10:54.798Z"
+  },
+  {
+    "id": "1752263297932",
+    "name": "VOICE SUPPORT",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:48:17.932Z",
+    "updatedAt": "2025-07-11T19:48:17.932Z"
+  },
+  {
+    "id": "1752263592924",
+    "name": "WRITING TOOLS",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:53:12.924Z",
+    "updatedAt": "2025-07-11T19:53:12.924Z"
+  },
+  {
+    "id": "1752263763239",
+    "name": "EDITING TOOLS",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:56:03.239Z",
+    "updatedAt": "2025-07-11T19:56:03.242Z"
+  },
+  {
+    "id": "1752263993632",
+    "name": "FINANCE",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T19:59:53.632Z",
+    "updatedAt": "2025-07-11T19:59:53.632Z"
+  },
+  {
+    "id": "1752264068524",
+    "name": "THOS BILLS",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T20:01:08.525Z",
+    "updatedAt": "2025-07-11T20:01:08.528Z"
+  },
+  {
+    "id": "1752264677141",
+    "name": "WEB MANAGEMENT",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T20:11:17.141Z",
+    "updatedAt": "2025-07-11T20:11:17.143Z"
+  },
+  {
+    "id": "1752265139775",
+    "name": "HOME MANAGEMENT",
+    "description": "",
+    "color": "#3B82F6",
+    "user_id": "dev-user-123",
+    "bookmarkCount": 0,
+    "createdAt": "2025-07-11T20:18:59.775Z",
+    "updatedAt": "2025-07-11T20:18:59.775Z"
+  }
+]

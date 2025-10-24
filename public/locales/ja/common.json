@@ -1,0 +1,58 @@
+{
+  "navigation": {
+    "dashboard": "ダッシュボード",
+    "settings": "設定",
+    "marketplace": "マーケットプレイス",
+    "analytics": "分析",
+    "profile": "プロファイル",
+    "billing": "請求",
+    "logout": "ログアウト"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "create": "作成",
+    "update": "更新",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "warning": "警告",
+    "info": "情報",
+    "confirm": "確認",
+    "yes": "はい",
+    "no": "いいえ",
+    "close": "閉じる",
+    "open": "開く",
+    "search": "検索",
+    "enable": "有効",
+    "disable": "無効",
+    "reset": "リセット"
+  },
+  "autoProcessing": {
+    "title": "自動処理コントロールパネル",
+    "description": "AI LinkPilot がブックマークとリンクを自動処理する方法を設定",
+    "history": "履歴",
+    "unsavedChanges": "保存されていない変更があります",
+    "intake": {
+      "title": "取り込み範囲",
+      "description": "どのタイプのリンク追加が自動処理をトリガーするかを制御",
+      "manualSaves": "手動保存",
+      "bulkUploads": "一括アップロード",
+      "browserCapture": "ブラウザキャプチャ",
+      "pauseProcessing": "すべての処理を一時停止"
+    },
+    "tagging": {
+      "title": "自動タグ付けとメタデータ",
+      "description": "自動タグ生成とコンテンツ分析を設定",
+      "enableTagging": "自動タグ付けを有効",
+      "confidence": "信頼度しきい値",
+      "tagStyle": "タグスタイル",
+      "languageMode": "言語モード",
+      "synonymMapping": "同義語マッピング",
+      "normalization": "正規化",
+      "manualReview": "手動レビュー"
+    }
+  }
+}

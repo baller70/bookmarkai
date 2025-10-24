@@ -1,0 +1,616 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+
+// Supported languages with actual translations
+export const SUPPORTED_LANGUAGES = {
+  'en': { name: 'English', flag: '🇺🇸', rtl: false },
+  'es': { name: 'Español', flag: '🇪🇸', rtl: false },
+  'fr': { name: 'Français', flag: '🇫🇷', rtl: false },
+  'de': { name: 'Deutsch', flag: '🇩🇪', rtl: false },
+  'it': { name: 'Italiano', flag: '🇮🇹', rtl: false },
+  'pt': { name: 'Português', flag: '🇵🇹', rtl: false },
+  'ru': { name: 'Русский', flag: '🇷🇺', rtl: false },
+  'ja': { name: '日本語', flag: '🇯🇵', rtl: false },
+  'ko': { name: '한국어', flag: '🇰🇷', rtl: false },
+  'zh': { name: '中文', flag: '🇨🇳', rtl: false },
+  'ar': { name: 'العربية', flag: '🇸🇦', rtl: true },
+  'hi': { name: 'हिन्दी', flag: '🇮🇳', rtl: false }
+} as const
+
+export type SupportedLanguage = keyof typeof SUPPORTED_LANGUAGES
+
+// Translation keys and values
+const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
+  'en': {
+    // Navigation
+    'nav.dashboard': 'Dashboard',
+    'nav.settings': 'Settings',
+    'nav.profile': 'Profile',
+    'nav.bookmarks': 'Bookmarks',
+    'nav.analytics': 'Analytics',
+    'nav.search': 'Search',
+    'nav.marketplace': 'Marketplace',
+    'nav.ai-copilot': 'AI Copilot',
+    'nav.dna-profile': 'DNA Profile',
+    'nav.ai-filtering': 'AI Filtering',
+    'nav.voice-commands': 'Voice Commands',
+    'nav.learning-mode': 'Learning Mode',
+    'nav.voice-test': 'Voice Test',
+    
+    // Common actions
+    'action.save': 'Save',
+    'action.cancel': 'Cancel',
+    'action.delete': 'Delete',
+    'action.edit': 'Edit',
+    'action.create': 'Create',
+    'action.update': 'Update',
+    'action.search': 'Search',
+    'action.filter': 'Filter',
+    'action.sort': 'Sort',
+    'action.export': 'Export',
+    'action.import': 'Import',
+    'action.reset': 'Reset',
+    'action.refresh': 'Refresh',
+    'action.close': 'Close',
+    'action.open': 'Open',
+    'action.view': 'View',
+    'action.download': 'Download',
+    'action.upload': 'Upload',
+    'action.share': 'Share',
+    'action.copy': 'Copy',
+    'action.paste': 'Paste',
+    'action.cut': 'Cut',
+    'action.undo': 'Undo',
+    'action.redo': 'Redo',
+    'action.select-all': 'Select All',
+    'action.clear': 'Clear',
+    'action.apply': 'Apply',
+    'action.confirm': 'Confirm',
+    'action.submit': 'Submit',
+    'action.continue': 'Continue',
+    'action.back': 'Back',
+    'action.next': 'Next',
+    'action.previous': 'Previous',
+    'action.finish': 'Finish',
+    'action.start': 'Start',
+    'action.stop': 'Stop',
+    'action.pause': 'Pause',
+    'action.resume': 'Resume',
+    'action.retry': 'Retry',
+    'action.skip': 'Skip',
+    'action.enable': 'Enable',
+    'action.disable': 'Disable',
+    'action.activate': 'Activate',
+    'action.deactivate': 'Deactivate',
+    'action.install': 'Install',
+    'action.uninstall': 'Uninstall',
+    'action.configure': 'Configure',
+    'action.customize': 'Customize',
+    'action.optimize': 'Optimize',
+    'action.analyze': 'Analyze',
+    'action.process': 'Process',
+    'action.generate': 'Generate',
+    'action.translate': 'Translate',
+    'action.connect': 'Connect',
+    'action.disconnect': 'Disconnect',
+    'action.sync': 'Sync',
+    'action.backup': 'Backup',
+    'action.restore': 'Restore',
+    'action.migrate': 'Migrate',
+    'action.upgrade': 'Upgrade',
+    'action.downgrade': 'Downgrade',
+    'action.validate': 'Validate',
+    'action.verify': 'Verify',
+    'action.test': 'Test',
+    'action.debug': 'Debug',
+    'action.monitor': 'Monitor',
+    'action.track': 'Track',
+    'action.log': 'Log',
+    'action.report': 'Report',
+    'action.preview': 'Preview',
+    'action.publish': 'Publish',
+    'action.unpublish': 'Unpublish',
+    'action.archive': 'Archive',
+    'action.unarchive': 'Unarchive',
+    'action.bookmark': 'Bookmark',
+    'action.unbookmark': 'Remove Bookmark',
+    'action.favorite': 'Add to Favorites',
+    'action.unfavorite': 'Remove from Favorites',
+    'action.like': 'Like',
+    'action.unlike': 'Unlike',
+    'action.follow': 'Follow',
+    'action.unfollow': 'Unfollow',
+    'action.subscribe': 'Subscribe',
+    'action.unsubscribe': 'Unsubscribe',
+    'action.notify': 'Notify',
+    'action.mute': 'Mute',
+    'action.unmute': 'Unmute',
+    'action.block': 'Block',
+    'action.unblock': 'Unblock',
+    'action.ban': 'Ban',
+    'action.unban': 'Unban',
+    'action.approve': 'Approve',
+    'action.reject': 'Reject',
+    'action.accept': 'Accept',
+    'action.decline': 'Decline',
+    'action.invite': 'Invite',
+    'action.join': 'Join',
+    'action.leave': 'Leave',
+    'action.login': 'Login',
+    'action.logout': 'Logout',
+    'action.register': 'Register',
+    'action.signup': 'Sign Up',
+    'action.signin': 'Sign In',
+    'action.signout': 'Sign Out',
+    
+    // Status messages
+    'status.loading': 'Loading...',
+    'status.saving': 'Saving...',
+    'status.saved': 'Saved',
+    'status.error': 'Error',
+    'status.success': 'Success',
+    'status.warning': 'Warning',
+    'status.info': 'Information',
+    'status.completed': 'Completed',
+    'status.failed': 'Failed',
+    'status.pending': 'Pending',
+    'status.processing': 'Processing...',
+    'status.connecting': 'Connecting...',
+    'status.connected': 'Connected',
+    'status.disconnected': 'Disconnected',
+    'status.online': 'Online',
+    'status.offline': 'Offline',
+    'status.available': 'Available',
+    'status.unavailable': 'Unavailable',
+    'status.active': 'Active',
+    'status.inactive': 'Inactive',
+    'status.enabled': 'Enabled',
+    'status.disabled': 'Disabled',
+    'status.public': 'Public',
+    'status.private': 'Private',
+    'status.draft': 'Draft',
+    'status.published': 'Published',
+    'status.archived': 'Archived',
+    'status.deleted': 'Deleted',
+    'status.updated': 'Updated',
+    'status.created': 'Created',
+    'status.modified': 'Modified',
+    'status.synchronized': 'Synchronized',
+    'status.backed-up': 'Backed Up',
+    'status.restored': 'Restored',
+    'status.migrated': 'Migrated',
+    'status.upgraded': 'Upgraded',
+    'status.downgraded': 'Downgraded',
+    'status.validated': 'Validated',
+    'status.verified': 'Verified',
+    'status.tested': 'Tested',
+    'status.debugged': 'Debugged',
+    'status.monitored': 'Monitored',
+    'status.tracked': 'Tracked',
+    'status.logged': 'Logged',
+    'status.reported': 'Reported',
+    'status.previewed': 'Previewed',
+    'status.optimized': 'Optimized',
+    'status.analyzed': 'Analyzed',
+    'status.processed': 'Processed',
+    'status.generated': 'Generated',
+    'status.translated': 'Translated',
+    'status.configured': 'Configured',
+    'status.customized': 'Customized',
+    'status.installed': 'Installed',
+    'status.uninstalled': 'Uninstalled',
+    'status.activated': 'Activated',
+    'status.deactivated': 'Deactivated',
+    'status.approved': 'Approved',
+    'status.rejected': 'Rejected',
+    'status.accepted': 'Accepted',
+    'status.declined': 'Declined',
+    'status.invited': 'Invited',
+    'status.joined': 'Joined',
+    'status.left': 'Left',
+    'status.logged-in': 'Logged In',
+    'status.logged-out': 'Logged Out',
+    'status.registered': 'Registered',
+    'status.signed-up': 'Signed Up',
+    'status.signed-in': 'Signed In',
+    'status.signed-out': 'Signed Out',
+    'status.bookmarked': 'Bookmarked',
+    'status.unbookmarked': 'Bookmark Removed',
+    'status.favorited': 'Added to Favorites',
+    'status.unfavorited': 'Removed from Favorites',
+    'status.liked': 'Liked',
+    'status.unliked': 'Unliked',
+    'status.followed': 'Followed',
+    'status.unfollowed': 'Unfollowed',
+    'status.subscribed': 'Subscribed',
+    'status.unsubscribed': 'Unsubscribed',
+    'status.notified': 'Notified',
+    'status.muted': 'Muted',
+    'status.unmuted': 'Unmuted',
+    'status.blocked': 'Blocked',
+    'status.unblocked': 'Unblocked',
+    'status.banned': 'Banned',
+    'status.unbanned': 'Unbanned',
+    'status.no-data': 'No data available'
+  },
+  'es': {
+    // Basic translations for Spanish
+    'nav.dashboard': 'Panel de Control',
+    'nav.settings': 'Configuración',
+    'nav.profile': 'Perfil',
+    'nav.bookmarks': 'Marcadores',
+    'nav.analytics': 'Analíticas',
+    'nav.search': 'Buscar',
+    'nav.marketplace': 'Mercado',
+    'nav.ai-copilot': 'Copiloto IA',
+    'nav.dna-profile': 'Perfil ADN',
+    'nav.ai-filtering': 'Filtrado IA',
+    'nav.voice-commands': 'Comandos de Voz',
+    'nav.learning-mode': 'Modo Aprendizaje',
+    'nav.voice-test': 'Prueba de Voz',
+    'action.save': 'Guardar',
+    'action.cancel': 'Cancelar',
+    'action.delete': 'Eliminar',
+    'action.edit': 'Editar',
+    'action.create': 'Crear',
+    'action.search': 'Buscar',
+    'status.loading': 'Cargando...',
+    'status.saving': 'Guardando...',
+    'status.saved': 'Guardado',
+    'status.error': 'Error',
+    'status.success': 'Éxito',
+    'status.no-data': 'No hay datos disponibles'
+  },
+  // For other languages, we'll fall back to English until translations are added
+  'fr': {
+    'nav.dashboard': 'Tableau de Bord',
+    'nav.settings': 'Paramètres',
+    'nav.profile': 'Profil',
+    'nav.bookmarks': 'Signets',
+    'nav.analytics': 'Analytiques',
+    'nav.search': 'Rechercher',
+    'nav.marketplace': 'Marché',
+    'nav.ai-copilot': 'Copilote IA',
+    'nav.dna-profile': 'Profil ADN',
+    'nav.ai-filtering': 'Filtrage IA',
+    'nav.voice-commands': 'Commandes Vocales',
+    'nav.learning-mode': 'Mode Apprentissage',
+    'nav.voice-test': 'Test Vocal',
+    'action.save': 'Sauvegarder',
+    'action.cancel': 'Annuler',
+    'action.delete': 'Supprimer',
+    'action.edit': 'Modifier',
+    'action.create': 'Créer',
+    'action.search': 'Rechercher',
+    'status.loading': 'Chargement...',
+    'status.saving': 'Sauvegarde...',
+    'status.saved': 'Sauvegardé',
+    'status.error': 'Erreur',
+    'status.success': 'Succès',
+    'status.no-data': 'Aucune donnée disponible'
+  },
+  'de': {
+    'nav.dashboard': 'Dashboard',
+    'nav.settings': 'Einstellungen',
+    'nav.profile': 'Profil',
+    'nav.bookmarks': 'Lesezeichen',
+    'nav.analytics': 'Analytics',
+    'nav.search': 'Suchen',
+    'nav.marketplace': 'Marktplatz',
+    'nav.ai-copilot': 'KI-Copilot',
+    'nav.dna-profile': 'DNA-Profil',
+    'nav.ai-filtering': 'KI-Filterung',
+    'nav.voice-commands': 'Sprachbefehle',
+    'nav.learning-mode': 'Lernmodus',
+    'nav.voice-test': 'Sprachtest',
+    'action.save': 'Speichern',
+    'action.cancel': 'Abbrechen',
+    'action.delete': 'Löschen',
+    'action.edit': 'Bearbeiten',
+    'action.create': 'Erstellen',
+    'action.search': 'Suchen',
+    'status.loading': 'Laden...',
+    'status.saving': 'Speichern...',
+    'status.saved': 'Gespeichert',
+    'status.error': 'Fehler',
+    'status.success': 'Erfolg',
+    'status.no-data': 'Keine Daten verfügbar'
+  },
+  'it': {
+    'nav.dashboard': 'Dashboard',
+    'nav.settings': 'Impostazioni',
+    'nav.profile': 'Profilo',
+    'nav.bookmarks': 'Segnalibri',
+    'nav.analytics': 'Analytics',
+    'nav.search': 'Cerca',
+    'nav.marketplace': 'Marketplace',
+    'nav.ai-copilot': 'Copilota IA',
+    'nav.dna-profile': 'Profilo DNA',
+    'nav.ai-filtering': 'Filtraggio IA',
+    'nav.voice-commands': 'Comandi Vocali',
+    'nav.learning-mode': 'Modalità Apprendimento',
+    'nav.voice-test': 'Test Vocale',
+    'action.save': 'Salva',
+    'action.cancel': 'Annulla',
+    'action.delete': 'Elimina',
+    'action.edit': 'Modifica',
+    'action.create': 'Crea',
+    'action.search': 'Cerca',
+    'status.loading': 'Caricamento...',
+    'status.saving': 'Salvataggio...',
+    'status.saved': 'Salvato',
+    'status.error': 'Errore',
+    'status.success': 'Successo',
+    'status.no-data': 'Nessun dato disponibile'
+  },
+  'pt': {
+    'nav.dashboard': 'Painel',
+    'nav.settings': 'Configurações',
+    'nav.profile': 'Perfil',
+    'nav.bookmarks': 'Favoritos',
+    'nav.analytics': 'Analytics',
+    'nav.search': 'Pesquisar',
+    'nav.marketplace': 'Marketplace',
+    'nav.ai-copilot': 'Copiloto IA',
+    'nav.dna-profile': 'Perfil DNA',
+    'nav.ai-filtering': 'Filtragem IA',
+    'nav.voice-commands': 'Comandos de Voz',
+    'nav.learning-mode': 'Modo Aprendizagem',
+    'nav.voice-test': 'Teste de Voz',
+    'action.save': 'Salvar',
+    'action.cancel': 'Cancelar',
+    'action.delete': 'Excluir',
+    'action.edit': 'Editar',
+    'action.create': 'Criar',
+    'action.search': 'Pesquisar',
+    'status.loading': 'Carregando...',
+    'status.saving': 'Salvando...',
+    'status.saved': 'Salvo',
+    'status.error': 'Erro',
+    'status.success': 'Sucesso',
+    'status.no-data': 'Nenhum dado disponível'
+  },
+  'ru': {
+    'nav.dashboard': 'Панель управления',
+    'nav.settings': 'Настройки',
+    'nav.profile': 'Профиль',
+    'nav.bookmarks': 'Закладки',
+    'nav.analytics': 'Аналитика',
+    'nav.search': 'Поиск',
+    'nav.marketplace': 'Маркетплейс',
+    'nav.ai-copilot': 'ИИ Помощник',
+    'nav.dna-profile': 'ДНК Профиль',
+    'nav.ai-filtering': 'ИИ Фильтрация',
+    'nav.voice-commands': 'Голосовые команды',
+    'nav.learning-mode': 'Режим обучения',
+    'nav.voice-test': 'Тест голоса',
+    'action.save': 'Сохранить',
+    'action.cancel': 'Отмена',
+    'action.delete': 'Удалить',
+    'action.edit': 'Редактировать',
+    'action.create': 'Создать',
+    'action.search': 'Поиск',
+    'status.loading': 'Загрузка...',
+    'status.saving': 'Сохранение...',
+    'status.saved': 'Сохранено',
+    'status.error': 'Ошибка',
+    'status.success': 'Успех',
+    'status.no-data': 'Данные отсутствуют'
+  },
+  'ja': {
+    'nav.dashboard': 'ダッシュボード',
+    'nav.settings': '設定',
+    'nav.profile': 'プロフィール',
+    'nav.bookmarks': 'ブックマーク',
+    'nav.analytics': 'アナリティクス',
+    'nav.search': '検索',
+    'nav.marketplace': 'マーケットプレイス',
+    'nav.ai-copilot': 'AIコパイロット',
+    'nav.dna-profile': 'DNAプロフィール',
+    'nav.ai-filtering': 'AIフィルタリング',
+    'nav.voice-commands': '音声コマンド',
+    'nav.learning-mode': '学習モード',
+    'nav.voice-test': '音声テスト',
+    'action.save': '保存',
+    'action.cancel': 'キャンセル',
+    'action.delete': '削除',
+    'action.edit': '編集',
+    'action.create': '作成',
+    'action.search': '検索',
+    'status.loading': '読み込み中...',
+    'status.saving': '保存中...',
+    'status.saved': '保存済み',
+    'status.error': 'エラー',
+    'status.success': '成功',
+    'status.no-data': 'データがありません'
+  },
+  'ko': {
+    'nav.dashboard': '대시보드',
+    'nav.settings': '설정',
+    'nav.profile': '프로필',
+    'nav.bookmarks': '북마크',
+    'nav.analytics': '분석',
+    'nav.search': '검색',
+    'nav.marketplace': '마켓플레이스',
+    'nav.ai-copilot': 'AI 코파일럿',
+    'nav.dna-profile': 'DNA 프로필',
+    'nav.ai-filtering': 'AI 필터링',
+    'nav.voice-commands': '음성 명령',
+    'nav.learning-mode': '학습 모드',
+    'nav.voice-test': '음성 테스트',
+    'action.save': '저장',
+    'action.cancel': '취소',
+    'action.delete': '삭제',
+    'action.edit': '편집',
+    'action.create': '생성',
+    'action.search': '검색',
+    'status.loading': '로딩 중...',
+    'status.saving': '저장 중...',
+    'status.saved': '저장됨',
+    'status.error': '오류',
+    'status.success': '성공',
+    'status.no-data': '데이터가 없습니다'
+  },
+  'zh': {
+    'nav.dashboard': '仪表板',
+    'nav.settings': '设置',
+    'nav.profile': '个人资料',
+    'nav.bookmarks': '书签',
+    'nav.analytics': '分析',
+    'nav.search': '搜索',
+    'nav.marketplace': '市场',
+    'nav.ai-copilot': 'AI副驾驶',
+    'nav.dna-profile': 'DNA档案',
+    'nav.ai-filtering': 'AI过滤',
+    'nav.voice-commands': '语音命令',
+    'nav.learning-mode': '学习模式',
+    'nav.voice-test': '语音测试',
+    'action.save': '保存',
+    'action.cancel': '取消',
+    'action.delete': '删除',
+    'action.edit': '编辑',
+    'action.create': '创建',
+    'action.search': '搜索',
+    'status.loading': '加载中...',
+    'status.saving': '保存中...',
+    'status.saved': '已保存',
+    'status.error': '错误',
+    'status.success': '成功',
+    'status.no-data': '无数据'
+  },
+  'ar': {
+    'nav.dashboard': 'لوحة التحكم',
+    'nav.settings': 'الإعدادات',
+    'nav.profile': 'الملف الشخصي',
+    'nav.bookmarks': 'الإشارات المرجعية',
+    'nav.analytics': 'التحليلات',
+    'nav.search': 'البحث',
+    'nav.marketplace': 'السوق',
+    'nav.ai-copilot': 'مساعد الذكاء الاصطناعي',
+    'nav.dna-profile': 'ملف الحمض النووي',
+    'nav.ai-filtering': 'تصفية الذكاء الاصطناعي',
+    'nav.voice-commands': 'الأوامر الصوتية',
+    'nav.learning-mode': 'وضع التعلم',
+    'nav.voice-test': 'اختبار الصوت',
+    'action.save': 'حفظ',
+    'action.cancel': 'إلغاء',
+    'action.delete': 'حذف',
+    'action.edit': 'تحرير',
+    'action.create': 'إنشاء',
+    'action.search': 'بحث',
+    'status.loading': 'جاري التحميل...',
+    'status.saving': 'جاري الحفظ...',
+    'status.saved': 'تم الحفظ',
+    'status.error': 'خطأ',
+    'status.success': 'نجح',
+    'status.no-data': 'لا توجد بيانات متاحة'
+  },
+  'hi': {
+    'nav.dashboard': 'डैशबोर्ड',
+    'nav.settings': 'सेटिंग्स',
+    'nav.profile': 'प्रोफाइल',
+    'nav.bookmarks': 'बुकमार्क',
+    'nav.analytics': 'एनालिटिक्स',
+    'nav.search': 'खोजें',
+    'nav.marketplace': 'मार्केटप्लेस',
+    'nav.ai-copilot': 'AI सहायक',
+    'nav.dna-profile': 'DNA प्रोफाइल',
+    'nav.ai-filtering': 'AI फिल्टरिंग',
+    'nav.voice-commands': 'वॉयस कमांड',
+    'nav.learning-mode': 'लर्निंग मोड',
+    'nav.voice-test': 'वॉयस टेस्ट',
+    'action.save': 'सेव करें',
+    'action.cancel': 'रद्द करें',
+    'action.delete': 'डिलीट करें',
+    'action.edit': 'संपादित करें',
+    'action.create': 'बनाएं',
+    'action.search': 'खोजें',
+    'status.loading': 'लोड हो रहा है...',
+    'status.saving': 'सेव हो रहा है...',
+    'status.saved': 'सेव हो गया',
+    'status.error': 'त्रुटि',
+    'status.success': 'सफलता',
+    'status.no-data': 'कोई डेटा उपलब्ध नहीं'
+  }
+}
+
+interface TranslationContextType {
+  language: SupportedLanguage
+  locale: SupportedLanguage // Alias for compatibility
+  setLanguage: (language: SupportedLanguage) => void
+  t: (key: string, fallback?: string) => string
+  isRTL: boolean
+  availableLanguages: typeof SUPPORTED_LANGUAGES
+}
+
+const DEFAULT_LANGUAGE: SupportedLanguage = 'en'
+const STORAGE_KEY = 'bookaimark-language'
+
+// Helper function to get current language info
+export function getCurrentLanguageInfo(lang?: SupportedLanguage): typeof SUPPORTED_LANGUAGES[SupportedLanguage] {
+  const currentLang = lang || DEFAULT_LANGUAGE;
+  return SUPPORTED_LANGUAGES[currentLang];
+}
+
+export function useTranslation(): TranslationContextType {
+  const [language, setLanguageState] = useState<SupportedLanguage>(DEFAULT_LANGUAGE)
+
+  // Initialize language from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored && stored in SUPPORTED_LANGUAGES) {
+          setLanguageState(stored as SupportedLanguage)
+        } else {
+          // Try to detect browser language
+          const browserLang = navigator.language.split('-')[0] as SupportedLanguage
+          if (browserLang in SUPPORTED_LANGUAGES) {
+            setLanguageState(browserLang)
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load language from localStorage:', error)
+      }
+    }
+  }, [])
+
+  // Save language to localStorage when it changes
+  const setLanguage = useCallback((newLanguage: SupportedLanguage) => {
+    setLanguageState(newLanguage)
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY, newLanguage)
+      } catch (error) {
+        console.warn('Failed to save language to localStorage:', error)
+      }
+    }
+  }, [])
+
+  // Translation function with fallback
+  const t = useCallback((key: string, fallback?: string): string => {
+    const translation = TRANSLATIONS[language]?.[key]
+    if (translation) return translation
+    
+    // Fallback to English if key not found in current language
+    if (language !== 'en') {
+      const englishTranslation = TRANSLATIONS.en[key]
+      if (englishTranslation) return englishTranslation
+    }
+    
+    // Final fallback to provided fallback or key itself
+    return fallback || key
+  }, [language])
+
+  const isRTL = SUPPORTED_LANGUAGES[language]?.rtl || false
+
+  return {
+    language,
+    locale: language, // Alias for compatibility
+    setLanguage,
+    t,
+    isRTL,
+    availableLanguages: SUPPORTED_LANGUAGES
+  }
+}    

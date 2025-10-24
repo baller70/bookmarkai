@@ -1,0 +1,942 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { writeFile, readFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { authenticateUser } from '@/lib/auth-utils';
+import { contentAnalysisService } from '@/lib/ai/content-analysis';
+import { createClient } from '@supabase/supabase-js';
+import { secureDb } from '@/lib/database/secure-client';
+import { validateInput, CreateBookmarkSchema, UpdateBookmarkSchema, BookmarkQuerySchema } from '@/lib/security/input-validation';
+import { getSecureConfig } from '@/lib/config/secure-env';
+import { FaviconExtractor } from '@/lib/favicon-extractor';
+
+// Storage configuration - Supabase first, file fallback for development/testing
+const BOOKMARKS_FILE = join(process.cwd(), 'data', 'bookmarks.json');
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+const USE_SUPABASE = !!(
+  supabaseUrl && 
+  supabaseKey &&
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseKey.includes('placeholder') &&
+  !supabaseKey.includes('dev-placeholder-service-key')
+);
+const USE_FILES_FALLBACK = true;
+
+// Initialize Supabase client
+const supabase = USE_SUPABASE ? createClient(
+  supabaseUrl!,
+  supabaseKey!
+) : null;
+
+// Simple UUID v4 check
+function isUuid(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
+}
+
+// Direct REST API helper functions (backup for client issues)
+async function directSupabaseInsert(data: any) {
+  console.log('🧪 Direct API Debug:');
+  console.log('- URL:', `${supabaseUrl}/rest/v1/bookmarks`);
+  console.log('- Key length:', supabaseKey?.length);
+  console.log('- Key start:', supabaseKey?.substring(0, 20) + '...');
+  console.log('- Data:', JSON.stringify(data));
+  
+  const headers = {
+    'Authorization': `Bearer ${supabaseKey}`,
+    'apikey': supabaseKey!,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+  
+  console.log('- Headers:', JSON.stringify(headers, null, 2));
+  
+  const response = await fetch(`${supabaseUrl}/rest/v1/bookmarks`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(data)
+  });
+  
+  console.log('- Response status:', response.status);
+  console.log('- Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.log('- Response body:', error);
+    throw new Error(`Supabase direct insert failed: ${error}`);
+  }
+  
+  return response.json();
+}
+
+async function directSupabaseSelect() {
+  const response = await fetch(`${supabaseUrl}/rest/v1/bookmarks?user_id=is.null&order=created_at.desc`, {
+    headers: {
+      'Authorization': `Bearer ${supabaseKey}`,
+      'apikey': supabaseKey!,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Supabase direct select failed: ${error}`);
+  }
+  
+  return response.json();
+}
+
+console.log('🔧 Storage Configuration:');
+console.log('📊 USE_SUPABASE:', USE_SUPABASE);
+console.log('📁 USE_FILES_FALLBACK:', USE_FILES_FALLBACK);
+console.log('🌐 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'NOT SET');
+console.log('🔑 Service Role Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'NOT SET');
+
+interface Bookmark {
+  id: number;
+  user_id: string;
+  title: string;
+  url: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  ai_summary?: string;
+  ai_tags?: string[];
+  ai_category?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  site_health?: 'excellent' | 'working' | 'fair' | 'poor' | 'broken';
+  last_health_check?: string;
+  healthCheckCount?: number;
+  customBackground?: string;
+  visits?: number;
+  time_spent?: number;
+  relatedBookmarks?: number[];
+
+  // Custom uploads for individual bookmark customization
+  custom_favicon?: string;
+  custom_logo?: string;
+  custom_background?: string;
+}
+
+// Ensure data directory exists (fallback only)
+async function ensureDataDirectory() {
+  const dataDir = join(process.cwd(), 'data');
+  if (!existsSync(dataDir)) {
+    await mkdir(dataDir, { recursive: true });
+  }
+}
+
+// Load bookmarks from Supabase (preferred) or file fallback
+async function loadBookmarks(): Promise<Bookmark[]> {
+  try {
+    if (USE_SUPABASE && supabase) {
+      console.log('📊 Loading bookmarks from Supabase...');
+      const { data, error } = await supabase
+        .from('user_bookmarks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        // If table doesn't exist, create it
+        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
+          console.log('📋 Table does not exist, will be created on first insert');
+          return [];
+        }
+        throw error;
+      }
+
+      console.log('📋 Loaded', data?.length || 0, 'bookmarks from Supabase');
+      return (data as Bookmark[]) || [];
+    } else if (USE_FILES_FALLBACK) {
+      console.log('📁 Loading bookmarks from file (development fallback):', BOOKMARKS_FILE);
+      await ensureDataDirectory();
+      if (!existsSync(BOOKMARKS_FILE)) {
+        console.log('❌ Bookmarks file does not exist:', BOOKMARKS_FILE);
+        return [];
+      }
+      const data = await readFile(BOOKMARKS_FILE, 'utf-8');
+      const parsed = JSON.parse(data) as Bookmark[];
+      console.log('📋 Parsed bookmarks count:', parsed.length);
+      return parsed;
+    } else {
+      console.error('❌ No storage method available');
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Error loading bookmarks:', error);
+    return [];
+  }
+}
+
+// Save bookmarks to file (development fallback only)
+async function saveBookmarksToFile(bookmarks: Bookmark[]): Promise<void> {
+  if (USE_FILES_FALLBACK) {
+    try {
+      await ensureDataDirectory();
+      await writeFile(BOOKMARKS_FILE, JSON.stringify(bookmarks, null, 2));
+      console.log('✅ Bookmarks file updated (development fallback)');
+    } catch (error) {
+      console.error('❌ Error saving bookmarks to file:', error);
+      throw error;
+    }
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('📖 Fetching bookmarks...');
+    
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const allCategories = searchParams.get('all_categories') === 'true';
+    
+    // For development/testing, use existing user ID from database
+    // In production, this should use proper authentication
+    const existingUserId = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f'; // Real user from database
+    const userId = existingUserId;
+    console.log(`[API] Using existing userId: ${userId}`);
+    
+    // Load bookmarks directly from Supabase for the hardcoded dev user
+    if (USE_SUPABASE && supabase) {
+      const { data: userBookmarks, error } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Supabase error fetching user bookmarks:', error);
+        throw error;
+      }
+      
+      console.log(`🎯 Found ${userBookmarks.length} bookmarks for user ${userId}`);
+      
+      // If requesting all categories, we need to adjust the logic
+      if (allCategories) {
+        const { data: allBookmarksForCategories, error: catError } = await supabase
+          .from('bookmarks')
+          .select('category');
+        
+        if(catError) {
+          console.error('❌ Supabase error fetching categories:', catError);
+        }
+
+        const uniqueCategories = [...new Set(allBookmarksForCategories?.map(b => b.category).filter(Boolean))].sort();
+        return NextResponse.json({
+          success: true,
+          categories: uniqueCategories,
+          total: uniqueCategories.length
+        });
+      }
+
+      const transformedBookmarks = userBookmarks.map((bookmark: any) => ({
+        id: bookmark.id,
+        title: bookmark.title?.toUpperCase() || 'UNTITLED',
+        url: bookmark.url,
+        description: bookmark.description || bookmark.ai_summary || 'No description available',
+        category: bookmark.category || bookmark.ai_category || 'General',
+        tags: bookmark.tags || bookmark.ai_tags || [],
+        priority: 'medium',
+        isFavorite: bookmark.is_favorite || false,
+        visits: bookmark.visits || 0,
+        lastVisited: bookmark.visits > 0 ? new Date(bookmark.created_at).toLocaleDateString() : 'Never',
+        dateAdded: new Date(bookmark.created_at).toLocaleDateString(),
+        favicon: bookmark.title?.charAt(0)?.toUpperCase() || 'B',
+        screenshot: "/placeholder.svg",
+        circularImage: bookmark.custom_logo || "/placeholder.svg",
+        custom_logo: bookmark.custom_logo,
+        logo: "",
+        notes: bookmark.notes || 'No notes',
+        timeSpent: bookmark.time_spent ? `${bookmark.time_spent}m` : '0m',
+        weeklyVisits: 0,
+        siteHealth: bookmark.site_health || 'unknown',
+        site_health: bookmark.site_health || 'unknown',
+        healthCheckCount: bookmark.healthCheckCount || 0,
+        last_health_check: bookmark.last_health_check,
+        customBackground: bookmark.customBackground,
+        project: {
+          name: bookmark.ai_category || bookmark.category || "GENERAL",
+          progress: 0,
+          status: "Active"
+        },
+        relatedBookmarks: bookmark.relatedBookmarks || [],
+        ai_summary: bookmark.ai_summary || null,
+        ai_tags: bookmark.ai_tags || [],
+        ai_category: bookmark.ai_category || null,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        bookmarks: transformedBookmarks,
+        total: transformedBookmarks.length
+      });
+
+    } else if (USE_FILES_FALLBACK) {
+      // Keep file fallback logic for local development
+      const allBookmarks = await loadBookmarks();
+      const userBookmarks = allBookmarks.filter(bookmark => bookmark.user_id === userId);
+      
+      // If requesting all categories, return unique categories from all users
+      if (allCategories) {
+        const uniqueCategories = [...new Set(allBookmarks.map(b => b.category).filter(Boolean))].sort();
+        console.log(`📁 Found ${uniqueCategories.length} unique categories:`, uniqueCategories);
+        
+        return NextResponse.json({
+          success: true,
+          categories: uniqueCategories,
+          total: uniqueCategories.length
+        });
+      }
+      
+      // Transform bookmarks to match frontend format
+      const transformedBookmarks = userBookmarks.map((bookmark) => ({
+        id: bookmark.id,
+        title: bookmark.title?.toUpperCase() || 'UNTITLED',
+        url: bookmark.url,
+        description: (bookmark as any).description || (bookmark as any).ai_summary || 'No description available',
+        category: (bookmark as any).category || (bookmark as any).ai_category || 'General',
+        tags: (bookmark as any).tags || (bookmark as any).ai_tags || [],
+        priority: 'medium',
+        isFavorite: bookmark.is_favorite || false,
+        visits: (bookmark as any).visits || 0,
+        lastVisited: (bookmark as any).visits > 0 ? new Date(bookmark.created_at).toLocaleDateString() : 'Never',
+        dateAdded: new Date(bookmark.created_at).toLocaleDateString(),
+        favicon: bookmark.title?.charAt(0)?.toUpperCase() || 'B',
+        screenshot: "/placeholder.svg",
+        circularImage: (bookmark as any).custom_logo || "/placeholder.svg",
+        custom_logo: (bookmark as any).custom_logo,
+        logo: "",
+        notes: (bookmark as any).notes || 'No notes',
+        timeSpent: (bookmark as any).time_spent ? `${(bookmark as any).time_spent}m` : '0m',
+        weeklyVisits: 0,
+        siteHealth: (bookmark as any).site_health || 'unknown',
+        site_health: (bookmark as any).site_health || 'unknown',
+        healthCheckCount: (bookmark as any).healthCheckCount || 0,
+        last_health_check: (bookmark as any).last_health_check,
+        customBackground: (bookmark as any).customBackground,
+        project: {
+          name: (bookmark as any).ai_category || (bookmark as any).category || "GENERAL",
+          progress: 0,
+          status: "Active"
+        },
+        relatedBookmarks: (bookmark as any).relatedBookmarks || []
+      })).map((b) => ({
+        ...b,
+        ai_summary: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_summary || null,
+        ai_tags: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_tags || [],
+        ai_category: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_category || null,
+      }));
+      
+      return NextResponse.json({
+        success: true,
+        bookmarks: transformedBookmarks,
+        total: transformedBookmarks.length
+      });
+    }
+
+    // This part should not be reached if Supabase or file fallback is used
+    return NextResponse.json({ error: 'No storage method configured' }, { status: 500 });
+    
+  } catch (error) {
+    console.error('❌ Unexpected error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('🚀 POST /api/bookmarks - Starting request processing');
+    
+    // For development/testing, use existing user ID from database
+    // In production, this should use proper authentication
+    const existingUserId = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f'; // Real user from database
+    const userId = existingUserId;
+    console.log(`[API] Using existing userId: ${userId}`);
+    
+    console.log('📦 Parsing request body...');
+    const body = await request.json();
+    console.log('📦 Request body parsed successfully:', JSON.stringify(body, null, 2));
+    let { id, title, url, description, category, tags, ai_summary, ai_tags, ai_category, notes, customBackground, relatedBookmarks, isFavorite, enableAI = true, custom_favicon, custom_logo, custom_background } = body;
+    
+    // AI WORKAROUND for broken UI: If title is missing but AI is on, generate title from content.
+    if (enableAI && url && !title) {
+      console.log('🤖 UI Workaround: Title is missing. Generating title from URL content via AI analysis.');
+      try {
+        const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+        ai_summary = result.aiSummary;
+        ai_tags = result.aiTags;
+        ai_category = result.aiCategory;
+        
+        // Use the summary as the title, truncated to a reasonable length
+        title = ai_summary?.substring(0, 100) || 'Untitled Bookmark';
+        console.log(`🤖 Generated Title: ${title}`);
+      } catch (e) {
+        console.warn('AI analysis for title generation failed:', (e as Error).message);
+        // Fallback title if AI fails
+        try {
+          const urlObject = new URL(url);
+          title = urlObject.hostname.replace('www.', '');
+        } catch {
+          title = 'Untitled Bookmark';
+        }
+      }
+    }
+
+    // Validate required fields
+    if (!title || !url) {
+      return NextResponse.json(
+        { error: 'Title and URL are required' },
+        { status: 400 }
+      );
+    }
+    
+    console.log('🔍 Storage check - USE_SUPABASE:', USE_SUPABASE, 'supabase client:', !!supabase);
+    
+    if (USE_SUPABASE && supabase) {
+      console.log('✅ Using Supabase for bookmark operations');
+      // Use Supabase for all operations
+      if (id) {
+        // UPDATE existing bookmark
+        console.log('📝 Updating bookmark in Supabase for user:', userId, 'ID:', id);
+
+        // Extract favicon if not provided and URL is being updated
+        let faviconUrl = custom_favicon;
+        if (!faviconUrl && url) {
+          console.log('🔍 Extracting favicon for updated bookmark:', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              faviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${faviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        const { data, error } = await supabase
+          .from('bookmarks')
+          .update({
+            title,
+            url,
+            description: description || ai_summary || '',
+            category: ai_category || category || 'General',
+            tags: tags || ai_tags || [],
+            ai_summary,
+            ai_tags: ai_tags || [],
+            ai_category,
+            notes: notes || '',
+            customBackground,
+            relatedBookmarks: relatedBookmarks || [],
+            is_favorite: isFavorite || false,
+            favicon: faviconUrl,
+            custom_favicon: faviconUrl,
+            custom_logo,
+            custom_background,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .eq('user_id', userId)
+          .select('*')
+          .single();
+
+        if (error) {
+          console.error('❌ Supabase update error:', error);
+          return NextResponse.json({ error: 'Failed to update bookmark' }, { status: 500 });
+        }
+
+        console.log('✅ Successfully updated bookmark (Supabase):', data);
+        return NextResponse.json({ success: true, bookmark: data, message: 'Bookmark updated successfully' });
+      } else {
+        // CREATE new bookmark
+        console.log('📝 Creating bookmark in Supabase for user:', userId);
+
+        // For production testing, we'll insert bookmarks without user_id to avoid foreign key constraint
+        // This allows testing without requiring full Supabase auth setup
+        console.log('⚠️ Note: Creating bookmark without user_id to avoid foreign key constraint (test mode)');
+
+        // AI analysis - run when enableAI is true and we don't have pre-provided AI data
+        let ai = { summary: ai_summary, tags: ai_tags, category: ai_category } as { summary?: string; tags?: string[]; category?: string };
+        if (enableAI && !ai_summary && !ai_tags) {
+          console.log('🤖 Running AI analysis for bookmark:', title, url);
+          try {
+            const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+            ai = { summary: result.aiSummary, tags: result.aiTags, category: result.aiCategory };
+            console.log('✅ AI analysis successful:', {
+              summary: ai.summary?.substring(0, 50) + '...',
+              category: ai.category,
+              tags: ai.tags?.slice(0, 3)
+            });
+          } catch (e) {
+            console.warn('❌ AI analysis failed, using fallbacks:', (e as Error).message);
+            ai = { summary: description || '', tags: tags || [], category: category || 'General' };
+          }
+        } else if (enableAI && (ai_summary || ai_tags)) {
+          console.log('📋 Using pre-provided AI data, skipping analysis');
+        } else {
+          console.log('🚫 AI analysis disabled or not needed');
+        }
+
+        // Decide final category: prefer AI category when the provided category is a generic/default bucket
+        const isDefaultBucket = (s?: string) => {
+          const v = String(s || '').trim().toLowerCase()
+          return v === 'general' || v === 'development' || v === 'uncategorized' || v === 'misc' || v === 'other'
+        }
+        let finalCategory = category
+        if (!finalCategory && ai.category) {
+          finalCategory = ai.category
+        } else if (isDefaultBucket(finalCategory) && ai.category) {
+          finalCategory = ai.category
+        }
+
+        // Extract favicon if not provided
+        let faviconUrl = custom_favicon;
+        if (!faviconUrl && url) {
+          console.log('🔍 Extracting favicon for bookmark:', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              faviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${faviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        // Only use columns that actually exist in the Supabase bookmarks table
+        // Store under the dev/testing user so reads include it
+        const insertPayload = {
+          user_id: isUuid(userId) ? userId : null,
+          title,
+          url,
+          description: description || ai.summary || '',
+          ai_summary: ai.summary || null,
+          ai_tags: ai.tags || [],
+          ai_category: ai.category || null,
+          category: finalCategory || 'General',
+          is_favorite: isFavorite || false,
+          favicon: faviconUrl,
+          custom_favicon: faviconUrl,
+          custom_logo,
+          custom_background,
+          // folder_id can be null for now since it's optional
+          folder_id: null
+        };
+
+        let insertResult = await supabase
+          .from('bookmarks')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (insertResult.error) {
+          console.error('❌ Supabase insert error:', insertResult.error);
+
+          // If Supabase client rejects the key, try direct REST API as a fallback (still Supabase)
+          if ((insertResult.error.message || '').toLowerCase().includes('invalid api key') || (insertResult.error.message || '').toLowerCase().includes('jwt')) {
+            console.log('🔄 Supabase client API key issue, trying direct REST API...');
+            try {
+              const directPayload = { ...insertPayload, user_id: null };
+              const directResult = await directSupabaseInsert(directPayload);
+              console.log('✅ Direct API success:', directResult[0]);
+              return NextResponse.json({ success: true, bookmark: directResult[0], message: 'Bookmark created successfully (direct API)' });
+            } catch (directErr) {
+              console.error('❌ Direct API failed as well:', directErr);
+            }
+          }
+
+          // Handle FK constraint by seeding dev profile then retry once (only when userId is UUID)
+          if (isUuid(userId) && insertResult.error.code === '23503' && insertResult.error.message?.includes('bookmarks_user_id_fkey')) {
+            console.log('🧩 Seeding dev profile row to satisfy FK, then retrying insert...');
+            try {
+              const seed = await supabase
+                .from('profiles')
+                .insert({ id: userId })
+                .select('id')
+                .single();
+              if (seed.error && seed.error.code !== '23505') {
+                console.warn('⚠️ Profile seed failed:', seed.error.message);
+              } else {
+                console.log('✅ Profile seed ensured for user:', userId);
+              }
+            } catch (e) {
+              console.warn('⚠️ Profile seed threw exception:', (e as Error).message);
+            }
+
+            // Retry bookmark insert once with user_id
+            insertResult = await supabase
+              .from('bookmarks')
+              .insert(insertPayload)
+              .select('*')
+              .single();
+          }
+
+          // If still failing with FK or RLS, fall back to inserting with user_id = null (dev/global)
+          if (
+            insertResult.error && (
+              insertResult.error.code === '23503' ||
+              (insertResult.error.message || '').toLowerCase().includes('row-level security') ||
+              insertResult.error.code === '42501'
+            )
+          ) {
+            console.log('🔄 Falling back to insert with user_id=null (dev mode)');
+            const retryNoUser = await supabase
+              .from('bookmarks')
+              .insert({ ...insertPayload, user_id: null as any })
+              .select('*')
+              .single();
+            if (!retryNoUser.error) {
+              // Auto-upsert category for dev user so folders/categories reflect the new category
+              const catName = (insertPayload.category || 'General');
+              try {
+                console.log('🔍 Checking if category exists (fallback path):', catName)
+                
+                // First, check if category already exists (any user_id)
+                let existingCategory: any = null
+                {
+                  const { data } = await supabase
+                    .from('categories')
+                    .select('id, name, user_id')
+                    .is('user_id', null)
+                    .eq('name', catName)
+                    .limit(1)
+                    .maybeSingle()
+                  existingCategory = data
+                }
+                
+                if (existingCategory) {
+                  console.log('✅ Category already exists (fallback path):', catName, 'with user_id:', existingCategory.user_id)
+                } else {
+                  console.log('🆕 Creating new category (fallback path):', catName)
+                  await supabase
+                    .from('categories')
+                    .upsert({ user_id: null, name: catName, description: '', color: '#3B82F6' }, { onConflict: 'user_id,name' });
+                }
+              } catch (e) {
+                console.warn('⚠️ Category upsert warning (fallback path):', (e as Error).message);
+              }
+              console.log('✅ Created bookmark with null user_id (dev fallback):', retryNoUser.data)
+              return NextResponse.json({ success: true, bookmark: retryNoUser.data, message: 'Bookmark created successfully' })
+            }
+          }
+
+          // Otherwise, return the error
+          if (insertResult.error) {
+            return NextResponse.json({ error: 'Failed to create bookmark', details: insertResult.error.message }, { status: 500 });
+          }
+        }
+
+        // Auto-upsert category in Supabase based on the bookmark's category
+        const catName = insertPayload.category || 'General'
+        try {
+          console.log('🔍 Checking if category exists:', catName)
+          
+          // First, check if category already exists (prefer user-owned if UUID, otherwise global)
+          let existingCategory: any = null
+          if (isUuid(userId)) {
+            const { data } = await supabase
+              .from('categories')
+              .select('id, name, user_id')
+              .eq('user_id', userId)
+              .eq('name', catName)
+              .limit(1)
+              .maybeSingle()
+            existingCategory = data
+          }
+          if (!existingCategory) {
+            const { data } = await supabase
+              .from('categories')
+              .select('id, name, user_id')
+              .is('user_id', null)
+              .eq('name', catName)
+              .limit(1)
+              .maybeSingle()
+            existingCategory = data
+          }
+          
+          if (existingCategory) {
+            console.log('✅ Category already exists:', catName, 'with user_id:', existingCategory.user_id)
+          } else {
+            console.log('🆕 Creating new category:', catName)
+            
+            // Try with userId (if UUID), fallback to null if FK/RLS fails
+            let categoryResult = await supabase
+              .from('categories')
+              .upsert({
+                user_id: isUuid(userId) ? userId : null,
+                name: catName,
+                description: '',
+                color: '#3B82F6'
+              }, { onConflict: 'user_id,name' })
+              
+            if (
+              categoryResult.error && (
+                categoryResult.error.code === '23503' ||
+                (categoryResult.error.message || '').toLowerCase().includes('row-level security') ||
+                categoryResult.error.code === '42501'
+              )
+            ) {
+              // FK/RLS constraint failed, try with null user_id
+              console.log('🔄 Category upsert: constraint failed, retrying with null user_id')
+              categoryResult = await supabase
+                .from('categories')
+                .upsert({
+                  user_id: null,
+                  name: catName,
+                  description: '',
+                  color: '#3B82F6'
+                }, { onConflict: 'user_id,name' })
+              // After creating new category, proactively touch GET /api/categories by computing count once to warm cache (no-op response)
+              try {
+                await getBookmarkCountForCategory(catName, String(insertPayload.user_id || ''))
+              } catch {}
+            }
+            
+            if (categoryResult.error) {
+              console.warn('⚠️ Category upsert warning:', categoryResult.error.message)
+            } else {
+              console.log('✅ Category upserted successfully:', catName)
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Category upsert exception:', (e as any)?.message)
+        }
+
+        console.log('✅ Successfully created bookmark (Supabase):', insertResult.data);
+        return NextResponse.json({ success: true, bookmark: insertResult.data, message: 'Bookmark created successfully' });
+      }
+    } else if (USE_FILES_FALLBACK) {
+      // File fallback for development only
+      const allBookmarks = await loadBookmarks();
+      
+      if (id) {
+        // UPDATE existing bookmark
+        const existingBookmark = allBookmarks.find(b => b.id === id && b.user_id === userId);
+        if (!existingBookmark) {
+          return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 });
+        }
+
+        // Extract favicon if not provided and URL is being updated
+        let faviconUrl = custom_favicon;
+        if (!faviconUrl && url) {
+          console.log('🔍 Extracting favicon for updated bookmark (file storage):', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              faviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${faviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        const updatedBookmark: Bookmark = {
+          ...existingBookmark,
+          title,
+          url,
+          description: description || '',
+          category: category || 'General',
+          tags: tags || [],
+          ai_summary,
+          ai_tags: ai_tags || [],
+          ai_category,
+          notes: notes || '',
+          customBackground,
+          relatedBookmarks: relatedBookmarks || [],
+          favicon: faviconUrl,
+          custom_favicon: faviconUrl,
+          custom_logo,
+          custom_background,
+          updated_at: new Date().toISOString()
+        };
+
+        const bookmarkIndex = allBookmarks.findIndex(b => b.id === updatedBookmark.id);
+        if (bookmarkIndex > -1) {
+          allBookmarks[bookmarkIndex] = updatedBookmark;
+        }
+        await saveBookmarksToFile(allBookmarks);
+        return NextResponse.json({ success: true, bookmark: updatedBookmark, message: 'Bookmark updated successfully' });
+      } else {
+        // CREATE new bookmark
+        
+        // AI analysis for file storage - run when enableAI is true and we don't have pre-provided AI data
+        let ai = { summary: ai_summary, tags: ai_tags, category: ai_category } as { summary?: string; tags?: string[]; category?: string };
+        if (enableAI && !ai_summary && !ai_tags) {
+          console.log('🤖 Running AI analysis for bookmark (File Storage):', title, url);
+          try {
+            const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+            ai = { summary: result.aiSummary, tags: result.aiTags, category: result.aiCategory };
+            console.log('✅ AI analysis successful (File Storage):', {
+              summary: ai.summary?.substring(0, 50) + '...',
+              category: ai.category,
+              tags: ai.tags?.slice(0, 3)
+            });
+          } catch (e) {
+            console.warn('❌ AI analysis failed (File Storage), using fallbacks:', (e as Error).message);
+            ai = { summary: description || '', tags: tags || [], category: category || 'General' };
+          }
+        } else if (enableAI && (ai_summary || ai_tags)) {
+          console.log('📋 Using pre-provided AI data (File Storage), skipping analysis');
+        } else {
+          console.log('🚫 AI analysis disabled or not needed (File Storage)');
+        }
+
+        // Extract favicon if not provided
+        let faviconUrl = custom_favicon;
+        if (!faviconUrl && url) {
+          console.log('🔍 Extracting favicon for new bookmark (file storage):', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              faviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${faviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            faviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        const newId = Math.max(0, ...allBookmarks.map(b => b.id)) + 1;
+        const newBookmark: Bookmark = {
+          id: newId,
+          user_id: userId,
+          title,
+          url,
+          description: description || ai.summary || '',
+          category: category || ai.category || 'General',
+          tags: tags || ai.tags || [],
+          ai_summary: ai.summary || null,
+          ai_tags: ai.tags || [],
+          ai_category: ai.category || null,
+          notes: notes || '',
+          relatedBookmarks: relatedBookmarks || [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          visits: 0,
+          time_spent: 0,
+          site_health: 'working' as const,
+          healthCheckCount: 0,
+          last_health_check: null,
+          customBackground,
+          favicon: faviconUrl,
+          custom_favicon: faviconUrl,
+          custom_logo,
+          custom_background
+        };
+
+        allBookmarks.push(newBookmark);
+        await saveBookmarksToFile(allBookmarks);
+        return NextResponse.json({ success: true, bookmark: newBookmark, message: 'Bookmark created successfully' });
+      }
+    } else {
+      console.error('❌ No storage method available - USE_SUPABASE:', USE_SUPABASE, 'USE_FILES_FALLBACK:', USE_FILES_FALLBACK);
+      return NextResponse.json({ error: 'No storage method available' }, { status: 500 });
+    }
+    
+  } catch (error) {
+    console.error('❌ POST /api/bookmarks - Unexpected error occurred:', error);
+    console.error('❌ Error stack:', (error as Error).stack);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const bookmarkId = searchParams.get('id');
+    
+    if (!bookmarkId) {
+      return NextResponse.json(
+        { error: 'Bookmark ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Per user instruction, always use the bypass ID for testing (same as GET).
+    const userId = '00000000-0000-0000-0000-000000000001';
+    console.log(`[API OVERRIDE] Forcing userId to dev bypass: ${userId}`);
+    
+    console.log(`🗑️ Deleting bookmark ${bookmarkId} for user ${userId}`);
+    
+    if (USE_SUPABASE && supabase) {
+      // Delete bookmark by id for user-owned OR global (null) records
+      const { error } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('id', bookmarkId)
+        .or(`user_id.eq.${userId},user_id.is.null`)
+
+      if (error) {
+        console.error('❌ Supabase delete error:', error);
+        return NextResponse.json({ error: 'Failed to delete bookmark', details: error.message }, { status: 500 });
+      }
+
+      console.log(`✅ Successfully deleted bookmark (Supabase): ${bookmarkId}`);
+      return NextResponse.json({ success: true, message: 'Bookmark deleted successfully' });
+    } else if (USE_FILES_FALLBACK) {
+      const allBookmarks = await loadBookmarks();
+      
+      // Handle both string and number IDs, and include null user_id for testing
+      const bookmarkToDelete = allBookmarks.find(b => {
+        const idMatch = String(b.id) === String(bookmarkId);
+        const userMatch = b.user_id === userId || b.user_id === null;
+        return idMatch && userMatch;
+      });
+      
+      if (!bookmarkToDelete) {
+        console.log(`❌ Bookmark not found: ID=${bookmarkId}, User=${userId}`);
+        return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 });
+      }
+      
+      const updatedBookmarks = allBookmarks.filter(b => {
+        const idMatch = String(b.id) === String(bookmarkId);
+        const userMatch = b.user_id === userId || b.user_id === null;
+        return !(idMatch && userMatch);
+      });
+      
+      await saveBookmarksToFile(updatedBookmarks);
+      console.log(`✅ Successfully deleted bookmark (file): ${bookmarkToDelete.title}`);
+      return NextResponse.json({ success: true, message: 'Bookmark deleted successfully' });
+    } else {
+      return NextResponse.json({ error: 'No storage method available' }, { status: 500 });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error deleting bookmark:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}

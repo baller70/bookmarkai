@@ -1,0 +1,1271 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { contentAnalysisService } from '@/lib/ai/content-analysis';
+import { FaviconExtractor } from '@/lib/favicon-extractor';
+import { getGoogleFaviconUrl } from '@/lib/favicon-utils';
+import { embeddingService, VectorUtils } from '@/lib/ai/embeddings';
+import { contentExtractor } from '@/lib/content-processing/content-extractor';
+import { storageHelpers } from '@/lib/api-helpers/storage-helpers';
+import { apiLogger as logger } from '@/lib/logger';
+import { handleApiError } from '@/lib/api-helpers/error-handlers';
+import { createClient } from '@supabase/supabase-js';
+
+export const dynamic = 'force-dynamic';
+
+// Initialize storage
+const { supabase, writeClient, adminSupabase, USE_SUPABASE, USE_FILES_FALLBACK, isUuid } = storageHelpers;
+
+// Development user ID for testing
+const DEV_USER_ID = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f';
+
+// --- Category similarity helpers to prevent proliferation ---
+const normalize = (s?: string) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ')
+
+function diceCoefficient(a: string, b: string): number {
+  a = normalize(a); b = normalize(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const bigrams = (str: string) => {
+    const res: string[] = [];
+    for (let i = 0; i < str.length - 1; i++) res.push(str.slice(i, i + 2));
+    return res;
+  };
+  const aB = bigrams(a), bB = bigrams(b);
+  const counts = new Map<string, number>();
+  for (const g of aB) counts.set(g, (counts.get(g) || 0) + 1);
+  let inter = 0;
+  for (const g of bB) {
+    const c = counts.get(g) || 0;
+    if (c > 0) { inter++; counts.set(g, c - 1); }
+  }
+  return (2 * inter) / (aB.length + bB.length);
+}
+
+async function chooseExistingCategoryOr(
+  params: {
+    userId?: string,
+    aiCategory?: string | null,
+    contextText: string,
+  }
+): Promise<{ name: string; score: number } | null> {
+  try {
+    if (!USE_SUPABASE || !supabase) return null;
+
+    const clauses = isUuid(params.userId) ? `user_id.eq.${params.userId},user_id.is.null` : 'user_id.is.null';
+    const { data: cats, error } = await supabase
+      .from('categories')
+      .select('id,name,description,user_id')
+      .or(clauses);
+    if (error) return null;
+
+    const categories = (cats || []) as Array<{ name: string; description?: string }>;
+    if (categories.length === 0) return null;
+
+    const aiCat = normalize(params.aiCategory || '');
+    if (aiCat) {
+      const exact = categories.find(c => normalize(c.name) === aiCat);
+      if (exact) return { name: exact.name, score: 1 };
+      const partial = categories
+        .map(c => ({ c, s: diceCoefficient(c.name, params.aiCategory!) }))
+        .sort((a, b) => b.s - a.s)[0];
+      if (partial && partial.s >= 0.9) return { name: partial.c.name, score: partial.s };
+    }
+
+    try {
+      const q = await embeddingService.createEmbedding({ text: params.contextText });
+      let best: { name: string; score: number } | null = null;
+      for (const c of categories) {
+        const catText = `${c.name} ${c.description || ''}`.trim();
+        const ce = await embeddingService.createEmbedding({ text: catText });
+        const sim = VectorUtils.cosineSimilarity(q.embedding, ce.embedding);
+        if (!best || sim > best.score) best = { name: c.name, score: sim };
+      }
+      if (best && best.score >= 0.78) return best;
+    } catch (_e) {
+      const best = categories
+        .map(c => ({ name: c.name, score: diceCoefficient(params.contextText, c.name) }))
+        .sort((a, b) => b.score - a.score)[0];
+      if (best && best.score >= 0.82) return best;
+    }
+  } catch (_err) {
+    // swallow and fall back
+  }
+  return null;
+}
+
+logger.info('Storage Configuration', { USE_SUPABASE, USE_FILES_FALLBACK });
+
+interface Bookmark {
+  id: number;
+  user_id: string;
+  title: string;
+  url: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  ai_summary?: string;
+  ai_tags?: string[];
+  ai_category?: string;
+  notes?: string;
+  priority?: number | 'low' | 'medium' | 'high';
+  created_at: string;
+  updated_at: string;
+  site_health?: 'excellent' | 'working' | 'fair' | 'poor' | 'broken';
+  last_health_check?: string;
+  healthCheckCount?: number;
+  custom_favicon?: string;
+  custom_logo?: string;
+  custom_background?: string;
+  customBackground?: string;
+  visits?: number;
+  time_spent?: number;
+  relatedBookmarks?: number[];
+}
+
+// Helper: Extract favicon with fallback
+async function extractFavicon(url: string): Promise<string> {
+  try {
+    const result = await FaviconExtractor.extractFavicon(url);
+    if (result.success && result.faviconUrl) {
+      logger.info('Favicon extracted', { source: result.source, url: result.faviconUrl });
+      return result.faviconUrl;
+    }
+    logger.warn('Favicon extraction failed', { error: result.error });
+    return FaviconExtractor.generateFallbackFavicon(url);
+  } catch (error) {
+    logger.error('Favicon extraction error', { error });
+    return FaviconExtractor.generateFallbackFavicon(url);
+  }
+}
+
+// Helper: Run AI analysis for bookmark
+async function analyzeBookmarkContent(
+  url: string,
+  title: string,
+  description: string | undefined,
+  userId: string,
+  enableAI: boolean,
+  provided: { summary?: string; tags?: string[]; category?: string }
+): Promise<{ summary?: string; tags?: string[]; category?: string }> {
+  if (!enableAI || (provided.summary && provided.tags)) {
+    return provided;
+  }
+
+  try {
+    const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+    logger.info('AI analysis successful', { category: result.aiCategory });
+    return { 
+      summary: result.aiSummary, 
+      tags: result.aiTags, 
+      category: result.aiCategory 
+    };
+  } catch (error) {
+    logger.warn('AI analysis failed, using fallbacks', { error });
+    return { 
+      summary: description || '', 
+      tags: provided.tags || [], 
+      category: provided.category || 'General' 
+    };
+  }
+}
+
+// Helper: Transform bookmark for frontend
+function transformBookmark(bookmark: any, priorityMap: Record<string, any>): any {
+  return {
+    id: bookmark.id,
+    title: bookmark.title?.toUpperCase() || 'UNTITLED',
+    url: bookmark.url,
+    description: bookmark.description || bookmark.ai_summary || 'No description available',
+    category: bookmark.category || bookmark.ai_category || 'General',
+    folder_id: bookmark.folder_id ?? null,
+    tags: bookmark.tags || bookmark.ai_tags || [],
+    priority: priorityMap[String(bookmark.id)] ?? bookmark.priority ?? 'medium',
+    isFavorite: Boolean(bookmark.is_favorite ?? bookmark.isFavorite),
+    visits: bookmark.visits || 0,
+    lastVisited: bookmark.visits > 0 ? new Date(bookmark.created_at).toLocaleDateString() : 'Never',
+    dateAdded: new Date(bookmark.created_at).toLocaleDateString(),
+    favicon: bookmark.custom_logo || bookmark.extracted_favicons?.[0]?.favicon_url || bookmark.favicon || getGoogleFaviconUrl(bookmark.url, 32),
+    screenshot: "/placeholder.svg",
+    circularImage: bookmark.custom_logo || getGoogleFaviconUrl(bookmark.url, 32),
+    custom_logo: bookmark.custom_logo,
+    logo: "",
+    notes: bookmark.notes || 'No notes',
+    timeSpent: bookmark.time_spent ? `${bookmark.time_spent}m` : '0m',
+    weeklyVisits: 0,
+    siteHealth: bookmark.site_health || 'unknown',
+    site_health: bookmark.site_health || 'unknown',
+    healthCheckCount: bookmark.healthCheckCount || 0,
+    last_health_check: bookmark.last_health_check,
+    customBackground: bookmark.custom_background ?? bookmark.customBackground ?? null,
+    project: { 
+      name: bookmark.ai_category || bookmark.category || "GENERAL", 
+      progress: 0, 
+      status: "Active" 
+    },
+    relatedBookmarks: bookmark.related_bookmarks || bookmark.relatedBookmarks || [],
+    ai_summary: bookmark.ai_summary || null,
+    ai_tags: bookmark.ai_tags || [],
+    ai_category: bookmark.ai_category || null,
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('📖 Fetching bookmarks...');
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const allCategories = searchParams.get('all_categories') === 'true';
+
+    // For development/testing, use existing user ID from database
+    // In production, this should use proper authentication
+    const existingUserId = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f'; // Real user from database
+    const userId = existingUserId;
+    console.log(`[API] Using existing userId: ${userId}`);
+
+    // Load bookmarks directly from Supabase for the hardcoded dev user
+    if (USE_SUPABASE && supabase) {
+      // Fetch from both user_bookmarks (current) and bookmarks (legacy) and merge
+      const [{ data: userBookmarks, error: userErr }, { data: legacyBookmarks, error: legacyErr }] = await Promise.all([
+        supabase
+          .from('user_bookmarks')
+          .select('*')
+          .or(`user_id.eq.${userId},user_id.is.null`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('bookmarks')
+          .select('*')
+          .or(`user_id.eq.${userId},user_id.is.null`)
+          .order('created_at', { ascending: false })
+      ]);
+
+      if (userErr) {
+        console.warn('⚠️ Supabase user_bookmarks fetch warning:', userErr.message);
+      const priorityMap = await loadPriorityMap().catch(() => ({} as Record<string, 'low'|'medium'|'high'>));
+      }
+      if (legacyErr) {
+        console.warn('⚠️ Supabase bookmarks fetch warning:', legacyErr.message);
+      }
+
+      // Merge per id choosing the freshest row across both tables.
+      // If timestamps are equal or missing, prefer user_bookmarks as the authoritative manual edit source.
+      const byId: Record<string, { row: any; source: 'user' | 'legacy' }> = {};
+      // Seed with legacy rows
+      for (const b of (legacyBookmarks || [])) {
+        const key = String(b.id);
+        byId[key] = { row: b, source: 'legacy' };
+      }
+      // Reconcile with user_bookmarks
+      for (const b of (userBookmarks || [])) {
+        const key = String(b.id);
+        const existing = byId[key];
+        if (!existing) {
+          byId[key] = { row: b, source: 'user' };
+          continue;
+        }
+        const tA = new Date((existing.row?.updated_at || existing.row?.created_at || 0) as any).getTime();
+        const tB = new Date((b?.updated_at || b?.created_at || 0) as any).getTime();
+        if (isFinite(tA) && isFinite(tB)) {
+          // Pick newer timestamp
+          byId[key] = tB >= tA ? { row: b, source: 'user' } : existing;
+        } else if (!isFinite(tA) && isFinite(tB)) {
+          byId[key] = { row: b, source: 'user' };
+        } else if (isFinite(tA) && !isFinite(tB)) {
+          // keep existing
+        } else {
+          // Neither has timestamps – prefer user_bookmarks
+          byId[key] = { row: b, source: 'user' };
+        }
+      }
+      const unified: any[] = Object.values(byId)
+        .map(entry => entry.row)
+        .sort((a: any, b: any) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
+
+      console.log(`🎯 Unified bookmarks (latest-per-id) for user ${userId}:`, unified.length);
+
+      // If requesting all categories, return set from unified results
+      if (allCategories) {
+        const uniqueCategories = [...new Set(unified.map(b => b.category).filter(Boolean))].sort();
+        return NextResponse.json({ success: true, categories: uniqueCategories, total: uniqueCategories.length }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+      }
+
+      const priorityMap = await loadPriorityMap().catch(() => ({} as Record<string, 'low'|'medium'|'high'>));
+      const transformedBookmarks = unified.map((bookmark: any) => ({
+        id: bookmark.id,
+        title: bookmark.title?.toUpperCase() || 'UNTITLED',
+        url: bookmark.url,
+        description: bookmark.description || bookmark.ai_summary || 'No description available',
+        category: bookmark.category || bookmark.ai_category || 'General',
+        folder_id: (bookmark as any).folder_id ?? null,
+        tags: bookmark.tags || bookmark.ai_tags || [],
+        priority: (priorityMap[String(bookmark.id)] as any) ?? (bookmark as any).priority ?? 'medium',
+        isFavorite: ((bookmark as any).is_favorite ?? (bookmark as any).isFavorite ?? false) as boolean,
+        visits: bookmark.visits || 0,
+        lastVisited: bookmark.visits > 0 ? new Date(bookmark.created_at).toLocaleDateString() : 'Never',
+        dateAdded: new Date(bookmark.created_at).toLocaleDateString(),
+        favicon: (() => {
+          const customLogo = (bookmark as any).custom_logo || (bookmark as any).customLogo;
+          if (customLogo) return customLogo;
+          const extractedFavicon = (bookmark as any).extracted_favicons?.[0]?.favicon_url;
+          const faviconUrl = extractedFavicon || bookmark.favicon || (bookmark.url ? getGoogleFaviconUrl(bookmark.url, 32) : '/placeholder.svg');
+          return faviconUrl;
+        })(),
+        screenshot: "/placeholder.svg",
+        circularImage: bookmark.custom_logo || getGoogleFaviconUrl(bookmark.url, 32),
+        custom_logo: bookmark.custom_logo,
+        logo: "",
+        notes: bookmark.notes || 'No notes',
+        timeSpent: bookmark.time_spent ? `${bookmark.time_spent}m` : '0m',
+        weeklyVisits: 0,
+        siteHealth: bookmark.site_health || 'unknown',
+        site_health: bookmark.site_health || 'unknown',
+        healthCheckCount: bookmark.healthCheckCount || 0,
+        last_health_check: bookmark.last_health_check,
+        // Normalize background field from either DB column custom_background or camelCase customBackground
+        customBackground: (bookmark as any).custom_background ?? (bookmark as any).customBackground ?? null,
+        project: { name: bookmark.ai_category || bookmark.category || "GENERAL", progress: 0, status: "Active" },
+        relatedBookmarks: bookmark.related_bookmarks || bookmark.relatedBookmarks || [], // Support both field names for compatibility
+        ai_summary: bookmark.ai_summary || null,
+        ai_tags: bookmark.ai_tags || [],
+        ai_category: bookmark.ai_category || null,
+      }));
+
+      return NextResponse.json({ success: true, bookmarks: transformedBookmarks, total: transformedBookmarks.length }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+
+    } else if (USE_FILES_FALLBACK) {
+      // Keep file fallback logic for local development
+      const allBookmarks = await loadBookmarks();
+      const userBookmarks = allBookmarks.filter(bookmark => bookmark.user_id === userId);
+
+      // If requesting all categories, return unique categories from all users
+      if (allCategories) {
+        const uniqueCategories = [...new Set(allBookmarks.map(b => b.category).filter(Boolean))].sort();
+        console.log(`📁 Found ${uniqueCategories.length} unique categories:`, uniqueCategories);
+
+        return NextResponse.json({
+          success: true,
+          categories: uniqueCategories,
+          total: uniqueCategories.length
+        }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+      }
+
+      const priorityMap = await loadPriorityMap().catch(() => ({} as Record<string, 'low'|'medium'|'high'>));
+      // Transform bookmarks to match frontend format
+      const transformedBookmarks = userBookmarks.map((bookmark) => ({
+        id: bookmark.id,
+        title: bookmark.title?.toUpperCase() || 'UNTITLED',
+        url: bookmark.url,
+        description: (bookmark as any).description || (bookmark as any).ai_summary || 'No description available',
+        category: (bookmark as any).category || (bookmark as any).ai_category || 'General',
+        folder_id: (bookmark as any).folder_id ?? null,
+        tags: (bookmark as any).tags || (bookmark as any).ai_tags || [],
+        priority: (priorityMap[String(bookmark.id)] as any) ?? (bookmark as any).priority ?? 'medium',
+        isFavorite: ((bookmark as any).is_favorite ?? (bookmark as any).isFavorite ?? false) as boolean,
+        visits: (bookmark as any).visits || 0,
+        lastVisited: (bookmark as any).visits > 0 ? new Date(bookmark.created_at).toLocaleDateString() : 'Never',
+        dateAdded: new Date(bookmark.created_at).toLocaleDateString(),
+        favicon: bookmark.title?.charAt(0)?.toUpperCase() || 'B',
+        screenshot: "/placeholder.svg",
+        circularImage: (bookmark as any).custom_logo || "/placeholder.svg",
+        custom_logo: (bookmark as any).custom_logo,
+        logo: "",
+        notes: (bookmark as any).notes || 'No notes',
+        timeSpent: (bookmark as any).time_spent ? `${(bookmark as any).time_spent}m` : '0m',
+        weeklyVisits: 0,
+        siteHealth: (bookmark as any).site_health || 'unknown',
+        site_health: (bookmark as any).site_health || 'unknown',
+        healthCheckCount: (bookmark as any).healthCheckCount || 0,
+        last_health_check: (bookmark as any).last_health_check,
+        customBackground: (bookmark as any).customBackground,
+        project: {
+          name: (bookmark as any).ai_category || (bookmark as any).category || "GENERAL",
+          progress: 0,
+          status: "Active"
+        },
+        relatedBookmarks: (bookmark as any).relatedBookmarks || []
+      })).map((b) => ({
+        ...b,
+        ai_summary: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_summary || null,
+        ai_tags: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_tags || [],
+        ai_category: (userBookmarks.find((ub:any)=>String(ub.id)===String(b.id)) as any)?.ai_category || null,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        bookmarks: transformedBookmarks,
+        total: transformedBookmarks.length
+      }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+    }
+
+    // This part should not be reached if Supabase or file fallback is used
+    return NextResponse.json({ error: 'No storage method configured' }, { status: 500 });
+
+  } catch (error) {
+    console.error('❌ Unexpected error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('🚀 POST /api/bookmarks - Starting request processing');
+
+    console.log('📦 Parsing request body...');
+    const body = await request.json();
+    console.log('📦 Request body parsed successfully:', JSON.stringify(body, null, 2));
+    let { id, title, url, description, category, tags, priority, ai_summary, ai_tags, ai_category, notes, customBackground, relatedBookmarks, isFavorite, enableAI = true, custom_favicon: userCustomFavicon, custom_logo: userCustomLogo, custom_background: userCustomBackground, user_id } = body;
+
+    // Determine if custom fields were explicitly provided in the request body
+    const hasCustomFavicon = Object.prototype.hasOwnProperty.call(body, 'custom_favicon');
+    const hasCustomLogo = Object.prototype.hasOwnProperty.call(body, 'custom_logo');
+    const hasCustomBackground = Object.prototype.hasOwnProperty.call(body, 'custom_background');
+
+    // Use user_id from request body, fallback to existing user ID for development/testing
+    const existingUserId = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f'; // Real user from database
+    const userId = user_id || existingUserId;
+    console.log(`[API] Using userId from request: ${user_id}, final userId: ${userId}`);
+
+    // AI WORKAROUND for broken UI: If title is missing but AI is on, generate title from content.
+    if (enableAI && url && !title) {
+      console.log('🤖 UI Workaround: Title is missing. Generating title from URL content via AI analysis.');
+      try {
+        // Prefer clean page/site title from metadata (no taglines)
+        const summary = await contentExtractor.extractSummary(url);
+        title = summary.title || summary.siteName || new URL(url).hostname.replace('www.', '');
+
+        // Optionally populate AI fields (summary/tags/category) without affecting title cleanliness
+        try {
+          const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+          ai_summary = result.aiSummary;
+          ai_tags = result.aiTags;
+          ai_category = result.aiCategory;
+        } catch (inner) {
+          console.warn('AI analysis for tags/category failed:', (inner as Error)?.message);
+        }
+
+        console.log(`🤖 Generated Title: ${title}`);
+      } catch (e) {
+        console.warn('Title extraction failed:', (e as Error).message);
+        // Fallback title if extraction fails
+        try {
+          const urlObject = new URL(url);
+          title = urlObject.hostname.replace('www.', '');
+        } catch {
+          title = 'Untitled Bookmark';
+        }
+      }
+    }
+
+    // Validate required fields (require title and url only when creating a new bookmark)
+    if (!id && (!title || !url)) {
+      return NextResponse.json(
+        { error: 'Title and URL are required for creation' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🔍 Storage check - USE_SUPABASE:', USE_SUPABASE, 'supabase client:', !!supabase);
+
+    if (USE_SUPABASE && supabase) {
+      console.log('✅ Using Supabase for bookmark operations');
+      // Use Supabase for all operations
+      if (id) {
+        // UPDATE existing bookmark
+        console.log('📝 Updating bookmark in Supabase for user:', userId, 'ID:', id);
+
+        // Extract favicon if URL is being updated (store in favicon field, not custom_favicon)
+        let extractedFaviconUrl: string | null = null;
+        if (url) {
+          console.log('🔍 Extracting favicon for updated bookmark:', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              extractedFaviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${extractedFaviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        // Build update payload with only explicitly provided fields to avoid overwriting with undefined
+        const updates: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+
+        if (typeof title !== 'undefined') updates.title = title;
+        if (typeof url !== 'undefined') updates.url = url;
+        if (typeof description !== 'undefined') updates.description = description || ai_summary || '';
+        if (typeof category !== 'undefined' || typeof ai_category !== 'undefined') updates.category = ai_category || category || 'General';
+        if (typeof tags !== 'undefined' || typeof ai_tags !== 'undefined') updates.tags = tags || ai_tags || [];
+        if (typeof ai_summary !== 'undefined') updates.ai_summary = ai_summary;
+        if (typeof ai_tags !== 'undefined') updates.ai_tags = ai_tags || [];
+        if (typeof ai_category !== 'undefined') updates.ai_category = ai_category;
+        if (typeof notes !== 'undefined') updates.notes = notes || '';
+        if (typeof isFavorite !== 'undefined') updates.is_favorite = Boolean(isFavorite);
+
+        if (typeof priority !== 'undefined') updates.priority = priority as 'low' | 'medium' | 'high';
+
+        // Add related_bookmarks only if provided (will be handled gracefully if column doesn't exist)
+        if (relatedBookmarks && Array.isArray(relatedBookmarks)) {
+          updates.related_bookmarks = relatedBookmarks;
+        }
+        if (extractedFaviconUrl !== null) updates.favicon = extractedFaviconUrl; // only set when extracted
+        if (hasCustomFavicon) updates.custom_favicon = userCustomFavicon ?? null;
+        if (hasCustomLogo) updates.custom_logo = userCustomLogo ?? null;
+        if (hasCustomBackground) updates.custom_background = userCustomBackground ?? null;
+
+        // Determine which table currently holds this bookmark ID
+        const [{ data: ubRow }, { data: legacyRow }] = await Promise.all([
+          supabase.from('user_bookmarks').select('id, user_id, updated_at').eq('id', id).limit(1).maybeSingle(),
+          supabase.from('bookmarks').select('id, user_id, updated_at').eq('id', id).limit(1).maybeSingle(),
+        ]);
+
+        const db = adminSupabase || supabase;
+        let updated: any = null;
+        let lastError: any = null;
+
+        async function updateIn(table: 'user_bookmarks' | 'bookmarks') {
+          const q = db
+            .from(table)
+            .update(updates)
+            .eq('id', id)
+            .select('*')
+            .maybeSingle();
+          const { data, error } = await q;
+
+          // If error is about missing related_bookmarks column, retry without it
+          if (error && error.message && error.message.includes('related_bookmarks')) {
+            console.log('⚠️  related_bookmarks column not found, retrying without it...');
+            const updatesWithoutRelated = { ...updates };
+            delete updatesWithoutRelated.related_bookmarks;
+
+            const retryQ = db
+              .from(table)
+              .update(updatesWithoutRelated)
+              .eq('id', id)
+              .select('*')
+              .maybeSingle();
+            const { data: retryData, error: retryError } = await retryQ;
+
+            if (!retryError && retryData) {
+              console.log('✅ Update succeeded without related_bookmarks field');
+              return retryData;
+            }
+            lastError = retryError || error;
+            return null;
+          }
+
+          // If error is about missing priority column, retry without it and persist via file fallback
+          if (error && error.message && error.message.toLowerCase().includes('priority')) {
+            console.log('⚠️  priority column not found, retrying without it and persisting to file...');
+            const updatesWithoutPriority = { ...updates } as any;
+            const requestedPriority = updatesWithoutPriority.priority as 'low' | 'medium' | 'high' | undefined;
+            delete updatesWithoutPriority.priority;
+
+            const retryQ = db
+              .from(table)
+              .update(updatesWithoutPriority)
+              .eq('id', id)
+              .select('*')
+              .maybeSingle();
+            const { data: retryData, error: retryError } = await retryQ;
+
+            if (!retryError && retryData) {
+              try { if (requestedPriority) await setPriorityForId(id, requestedPriority); } catch {}
+              console.log('✅ Update succeeded without priority column; stored in file fallback');
+              return retryData;
+            }
+            lastError = retryError || error;
+            return null;
+          }
+
+          if (!error && data) {
+            try { if (typeof priority !== 'undefined') await setPriorityForId(id, priority as 'low'|'medium'|'high'); } catch {}
+            return data;
+          }
+          lastError = error;
+          return null;
+        }
+
+        // Prefer updating the table that currently contains the row
+        if (ubRow) {
+          updated = await updateIn('user_bookmarks');
+          if (!updated && legacyRow) updated = await updateIn('bookmarks');
+        } else if (legacyRow) {
+          updated = await updateIn('bookmarks');
+          if (!updated && ubRow) updated = await updateIn('user_bookmarks');
+        } else {
+          // Unknown origin; try user_bookmarks first then bookmarks
+          updated = await updateIn('user_bookmarks');
+          if (!updated) updated = await updateIn('bookmarks');
+        }
+
+        if (!updated) {
+          console.error('❌ Supabase update failed across tables:', lastError);
+          return NextResponse.json({ error: 'Failed to update bookmark' }, { status: 500 });
+        }
+
+        console.log('✅ Successfully updated bookmark (Supabase):', updated);
+        return NextResponse.json({ success: true, bookmark: updated, message: 'Bookmark updated successfully' });
+      } else {
+        // CREATE new bookmark
+        console.log('📝 Creating bookmark in Supabase for user:', userId);
+
+        // For production testing, we'll insert bookmarks without user_id to avoid foreign key constraint
+        // This allows testing without requiring full Supabase auth setup
+        console.log('⚠️ Note: Creating bookmark without user_id to avoid foreign key constraint (test mode)');
+
+        // AI analysis - run when enableAI is true and we don't have pre-provided AI data
+        let ai = { summary: ai_summary, tags: ai_tags, category: ai_category } as { summary?: string; tags?: string[]; category?: string };
+        if (enableAI && !ai_summary && !ai_tags) {
+          console.log('🤖 Running AI analysis for bookmark:', title, url);
+          try {
+            const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+            ai = { summary: result.aiSummary, tags: result.aiTags, category: result.aiCategory };
+            console.log('✅ AI analysis successful:', {
+              summary: ai.summary?.substring(0, 50) + '...',
+              category: ai.category,
+              tags: ai.tags?.slice(0, 3)
+            });
+          } catch (e) {
+            console.warn('❌ AI analysis failed, using fallbacks:', (e as Error).message);
+            ai = { summary: description || '', tags: tags || [], category: category || 'General' };
+          }
+        } else if (enableAI && (ai_summary || ai_tags)) {
+          console.log('📋 Using pre-provided AI data, skipping analysis');
+        } else {
+          console.log('🚫 AI analysis disabled or not needed');
+        }
+
+        // Decide final category with AI + similarity against existing to prevent proliferation
+        const isDefaultBucket = (s?: string) => {
+          const v = String(s || '').trim().toLowerCase()
+          return v === 'general' || v === 'development' || v === 'uncategorized' || v === 'misc' || v === 'other'
+        }
+
+        // Compose context from bookmark fields for semantic comparison
+        const contextParts = [title, description, ai.summary, (ai.tags || []).join(' '), url].filter(Boolean) as string[]
+        const contextText = contextParts.join(' \n ')
+
+        let finalCategory = category
+
+        // First, try to map to an existing category using similarity
+        try {
+          const match = await chooseExistingCategoryOr({ userId, aiCategory: ai.category || category, contextText })
+          if (match?.name) {
+            finalCategory = match.name
+          } else if (!finalCategory && ai.category) {
+            finalCategory = ai.category
+          } else if (isDefaultBucket(finalCategory) && ai.category) {
+            finalCategory = ai.category
+          }
+        } catch {
+          // Fallback to previous heuristic
+          if (!finalCategory && ai.category) finalCategory = ai.category
+        }
+
+        // Extract favicon automatically for new bookmarks
+        let extractedFaviconUrl = null;
+        if (url) {
+          console.log('🔍 Extracting favicon for bookmark:', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            console.log('🔍 DEBUG: faviconResult =', JSON.stringify(faviconResult));
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              extractedFaviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${extractedFaviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        console.log('🔍 DEBUG: Final extractedFaviconUrl =', extractedFaviconUrl);
+
+        // Only use columns that actually exist in the Supabase bookmarks table
+        // Store under the dev/testing user so reads include it
+
+        // DEBUG: Log the extracted favicon URL
+        console.log('🔍 DEBUG: extractedFaviconUrl =', extractedFaviconUrl);
+        console.log('🔍 DEBUG: userCustomFavicon =', userCustomFavicon);
+
+        const insertPayload: any = {};
+
+        insertPayload.user_id = isUuid(userId) ? userId : null;
+        insertPayload.title = title;
+        insertPayload.url = url;
+        insertPayload.description = description || ai.summary || '';
+        insertPayload.category = finalCategory || 'General';
+        insertPayload.is_favorite = isFavorite || false;
+        insertPayload.priority = (priority as 'low' | 'medium' | 'high') || 'medium';
+
+        insertPayload.favicon = extractedFaviconUrl; // Store extracted favicon in favicon field
+        insertPayload.custom_logo = userCustomLogo || null;
+        // Persist tags: prefer explicitly provided tags; otherwise use AI-generated tags
+        insertPayload.tags = Array.isArray(tags) && tags.length > 0 ? tags : (Array.isArray(ai.tags) ? ai.tags : []);
+
+        // Add related_bookmarks only if provided (will be handled gracefully if column doesn't exist)
+        if (relatedBookmarks && Array.isArray(relatedBookmarks)) {
+          insertPayload.related_bookmarks = relatedBookmarks;
+        }
+        // NOTE: Exclude ai_* fields and non-existent columns from insert to avoid schema errors
+        // insertPayload.notes = notes || null;
+
+        console.log('🔍 DEBUG: insertPayload.favicon =', insertPayload.favicon);
+
+        // DEBUG: Prefer direct REST insert first to avoid any client-side issues, but do NOT return early
+        console.log('🔧 Using direct API to bypass potential client issues');
+        let insertResult: any = { data: null, error: null };
+        try {
+          const directResult = await directSupabaseInsert(insertPayload);
+          console.log('✅ Direct API success:', directResult[0]);
+          insertResult.data = directResult[0];
+        } catch (directErr) {
+          console.error('❌ Direct API failed:', directErr);
+        }
+
+        // If direct path did not produce a result, fall back to Supabase client insert
+        if (!insertResult.data) {
+          insertResult = await writeClient
+            .from('bookmarks')
+            .insert(insertPayload)
+            .select('*')
+            .single();
+        }
+
+        if (insertResult.error) {
+          console.error('❌ Supabase insert error:', insertResult.error);
+
+          // If error is about missing related_bookmarks column, retry without it
+          if (insertResult.error.message && insertResult.error.message.includes('related_bookmarks')) {
+            console.log('⚠️  related_bookmarks column not found, retrying without it...');
+            const payloadWithoutRelated = { ...insertPayload };
+            delete payloadWithoutRelated.related_bookmarks;
+
+            insertResult = await writeClient
+              .from('bookmarks')
+              .insert(payloadWithoutRelated)
+              .select('*')
+              .single();
+
+            if (!insertResult.error) {
+              console.log('✅ Insert succeeded without related_bookmarks field');
+            }
+          }
+
+          // If error is about missing priority column, retry without it and persist via file
+          if (insertResult.error && (insertResult.error.message || '').toLowerCase().includes('priority')) {
+            console.log('⚠️  priority column not found, retrying insert without it and persisting to file...');
+            const payloadWithoutPriority = { ...insertPayload } as any;
+            const requestedPriority = payloadWithoutPriority.priority as 'low'|'medium'|'high' | undefined;
+            delete payloadWithoutPriority.priority;
+
+            insertResult = await writeClient
+              .from('bookmarks')
+              .insert(payloadWithoutPriority)
+              .select('*')
+              .single();
+
+            if (!insertResult.error && insertResult.data && requestedPriority) {
+              try { await setPriorityForId(insertResult.data.id, requestedPriority); } catch {}
+              console.log('✅ Insert succeeded without priority column; stored in file fallback');
+            }
+          }
+
+          // If Supabase client rejects the key, try direct REST API as a fallback (still Supabase)
+          if (insertResult.error && ((insertResult.error.message || '').toLowerCase().includes('invalid api key') || (insertResult.error.message || '').toLowerCase().includes('jwt'))) {
+            console.log('🔄 Supabase client API key issue, trying direct REST API...');
+            try {
+              const directResult = await directSupabaseInsert(insertPayload);
+              console.log('✅ Direct API success:', directResult[0]);
+              insertResult = { data: directResult[0], error: null };
+            } catch (directErr) {
+              console.error('❌ Direct API failed as well:', directErr);
+            }
+          }
+
+          // Handle FK constraint by seeding dev profile then retry once (only when userId is UUID)
+          if (isUuid(userId) && insertResult.error.code === '23503' && insertResult.error.message?.includes('bookmarks_user_id_fkey')) {
+            console.log('🧩 Seeding dev profile row to satisfy FK, then retrying insert...');
+            try {
+              const seed = await writeClient
+                .from('profiles')
+                .insert({ id: userId })
+                .select('id')
+                .single();
+              if (seed.error && seed.error.code !== '23505') {
+                console.warn('⚠️ Profile seed failed:', seed.error.message);
+              } else {
+                console.log('✅ Profile seed ensured for user:', userId);
+              }
+            } catch (e) {
+              console.warn('⚠️ Profile seed threw exception:', (e as Error).message);
+            }
+
+            // Retry bookmark insert once with user_id
+            insertResult = await writeClient
+              .from('bookmarks')
+              .insert(insertPayload)
+              .select('*')
+              .single();
+          }
+
+          // If still failing with FK or RLS, fall back to inserting with user_id = null (dev/global)
+          if (
+            insertResult.error && (
+              insertResult.error.code === '23503' ||
+              (insertResult.error.message || '').toLowerCase().includes('row-level security') ||
+              insertResult.error.code === '42501'
+            )
+          ) {
+            console.log('🔄 Falling back to insert with user_id=null (dev mode)');
+            const retryNoUser = await writeClient
+              .from('bookmarks')
+              .insert({ ...insertPayload, user_id: null as any })
+              .select('*')
+              .single();
+            if (!retryNoUser.error) {
+              // Auto-upsert category for dev user so folders/categories reflect the new category
+              const catName = (insertPayload.category || 'General');
+              try {
+                console.log('🔍 Checking if category exists (fallback path):', catName)
+
+                // First, check if category already exists (any user_id)
+                let existingCategory: any = null
+                {
+                  const { data } = await writeClient
+                    .from('categories')
+                    .select('id, name, user_id')
+                    .is('user_id', null)
+                    .eq('name', catName)
+                    .limit(1)
+                    .maybeSingle()
+                  existingCategory = data
+                }
+
+                if (existingCategory) {
+                  console.log('✅ Category already exists (fallback path):', catName, 'with user_id:', existingCategory.user_id)
+                } else {
+                  console.log('🆕 Creating new category (fallback path):', catName)
+                  await writeClient
+                    .from('categories')
+                    .upsert({ user_id: null, name: catName, description: '', color: '#3B82F6' }, { onConflict: 'user_id,name' });
+                }
+              } catch (e) {
+                console.warn('⚠️ Category upsert warning (fallback path):', (e as Error).message);
+              }
+              console.log('✅ Created bookmark with null user_id (dev fallback):', retryNoUser.data)
+              return NextResponse.json({ success: true, bookmark: retryNoUser.data, message: 'Bookmark created successfully' })
+            }
+          }
+
+          // Otherwise, return the error
+          if (insertResult.error) {
+            return NextResponse.json({ error: 'Failed to create bookmark', details: insertResult.error.message }, { status: 500 });
+          }
+        }
+
+        // Auto-upsert category in Supabase based on the bookmark's category
+        const catName = insertPayload.category || 'General'
+        try {
+          console.log('🔍 Checking if category exists:', catName)
+
+          // First, check if category already exists (prefer user-owned if UUID, otherwise global)
+          let existingCategory: any = null
+          if (isUuid(userId)) {
+            const { data } = await writeClient
+              .from('categories')
+              .select('id, name, user_id')
+              .eq('user_id', userId)
+              .eq('name', catName)
+              .limit(1)
+              .maybeSingle()
+            existingCategory = data
+          }
+          if (!existingCategory) {
+            const { data } = await writeClient
+              .from('categories')
+              .select('id, name, user_id')
+              .is('user_id', null)
+              .eq('name', catName)
+              .limit(1)
+              .maybeSingle()
+            existingCategory = data
+          }
+
+          if (existingCategory) {
+            console.log('✅ Category already exists:', catName, 'with user_id:', existingCategory.user_id)
+          } else {
+            console.log('🆕 Creating new category:', catName)
+
+            // Try with userId (if UUID), fallback to null if FK/RLS fails
+            let categoryResult = await writeClient
+              .from('categories')
+              .upsert({
+                user_id: isUuid(userId) ? userId : null,
+                name: catName,
+                description: '',
+                color: '#3B82F6'
+              }, { onConflict: 'user_id,name' })
+
+            if (
+              categoryResult.error && (
+                categoryResult.error.code === '23503' ||
+                (categoryResult.error.message || '').toLowerCase().includes('row-level security') ||
+                categoryResult.error.code === '42501'
+              )
+            ) {
+              // FK/RLS constraint failed, try with null user_id
+              console.log('🔄 Category upsert: constraint failed, retrying with null user_id')
+              categoryResult = await writeClient
+                .from('categories')
+                .upsert({
+                  user_id: null,
+                  name: catName,
+                  description: '',
+                  color: '#3B82F6'
+                }, { onConflict: 'user_id,name' })
+            }
+
+            if (categoryResult.error) {
+              console.warn('⚠️ Category upsert warning:', categoryResult.error.message)
+            } else {
+              console.log('✅ Category upserted successfully:', catName)
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Category upsert exception:', (e as any)?.message)
+        }
+
+        // Store extracted favicon in separate table
+        if (extractedFaviconUrl && insertResult.data?.id) {
+          try {
+            const faviconInsert = await writeClient
+              .from('extracted_favicons')
+              .insert({
+                bookmark_id: insertResult.data.id,
+                favicon_url: extractedFaviconUrl,
+                extraction_source: 'html-link', // TODO: Pass actual source from extraction
+                is_active: true
+              });
+
+            if (faviconInsert.error) {
+              console.warn('⚠️ Failed to store extracted favicon:', faviconInsert.error);
+            } else {
+              console.log('✅ Extracted favicon stored successfully');
+            }
+          } catch (faviconError) {
+            console.warn('⚠️ Error storing extracted favicon:', faviconError);
+          }
+        }
+
+        // Persist priority to file map as a resilient source of truth
+        try { if (typeof priority !== 'undefined' && insertResult.data?.id) {
+          await setPriorityForId(insertResult.data.id, priority as 'low'|'medium'|'high')
+        }} catch {}
+
+        console.log('✅ Successfully created bookmark (Supabase):', insertResult.data);
+        return NextResponse.json({ success: true, bookmark: insertResult.data, message: 'Bookmark created successfully' });
+      }
+    } else if (USE_FILES_FALLBACK) {
+      // File fallback for development only
+      const allBookmarks = await loadBookmarks();
+
+      if (id) {
+        // UPDATE existing bookmark
+        const existingBookmark = allBookmarks.find(b => b.id === id && b.user_id === userId);
+        if (!existingBookmark) {
+          return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 });
+        }
+
+        // Extract favicon if URL is being updated (store in favicon field, not custom_favicon)
+        let extractedFaviconUrl = null;
+        if (url) {
+          console.log('🔍 Extracting favicon for updated bookmark (file storage):', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              extractedFaviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${extractedFaviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        const updatedBookmark = {
+          ...existingBookmark,
+          title: title ?? existingBookmark.title,
+          url: url ?? existingBookmark.url,
+          description: (typeof description !== 'undefined') ? (description || '') : existingBookmark.description,
+          category: (typeof category !== 'undefined') ? (category || 'General') : existingBookmark.category,
+          tags: (typeof tags !== 'undefined') ? (tags || []) : existingBookmark.tags,
+          ai_summary: (typeof ai_summary !== 'undefined') ? ai_summary : existingBookmark.ai_summary,
+          ai_tags: (typeof ai_tags !== 'undefined') ? (ai_tags || []) : existingBookmark.ai_tags,
+          ai_category: (typeof ai_category !== 'undefined') ? ai_category : existingBookmark.ai_category,
+          notes: (typeof notes !== 'undefined') ? (notes || '') : existingBookmark.notes,
+          customBackground: (typeof customBackground !== 'undefined') ? customBackground : existingBookmark.customBackground,
+          relatedBookmarks: (typeof relatedBookmarks !== 'undefined') ? (relatedBookmarks || []) : existingBookmark.relatedBookmarks,
+          priority: (typeof priority !== 'undefined') ? priority : (existingBookmark as any).priority,
+          updated_at: new Date().toISOString()
+        } as any;
+        // Apply visuals updates conditionally to avoid wiping existing values unintentionally
+        if (extractedFaviconUrl != null) updatedBookmark.favicon = extractedFaviconUrl;
+        if (hasCustomFavicon) updatedBookmark.custom_favicon = userCustomFavicon ?? null;
+        if (hasCustomLogo) updatedBookmark.custom_logo = userCustomLogo ?? null;
+        if (hasCustomBackground) updatedBookmark.custom_background = userCustomBackground ?? null;
+
+        const bookmarkIndex = allBookmarks.findIndex(b => b.id === updatedBookmark.id);
+        if (bookmarkIndex > -1) {
+          allBookmarks[bookmarkIndex] = updatedBookmark;
+        }
+        await saveBookmarksToFile(allBookmarks);
+        return NextResponse.json({ success: true, bookmark: updatedBookmark, message: 'Bookmark updated successfully' });
+      } else {
+        // CREATE new bookmark
+
+        // AI analysis for file storage - run when enableAI is true and we don't have pre-provided AI data
+        let ai = { summary: ai_summary, tags: ai_tags, category: ai_category } as { summary?: string; tags?: string[]; category?: string };
+        if (enableAI && !ai_summary && !ai_tags) {
+          console.log('🤖 Running AI analysis for bookmark (File Storage):', title, url);
+          try {
+            const result = await contentAnalysisService.analyzeContent({ url, title, description, userId });
+            ai = { summary: result.aiSummary, tags: result.aiTags, category: result.aiCategory };
+            console.log('✅ AI analysis successful (File Storage):', {
+              summary: ai.summary?.substring(0, 50) + '...',
+              category: ai.category,
+              tags: ai.tags?.slice(0, 3)
+            });
+          } catch (e) {
+            console.warn('❌ AI analysis failed (File Storage), using fallbacks:', (e as Error).message);
+            ai = { summary: description || '', tags: tags || [], category: category || 'General' };
+          }
+        } else if (enableAI && (ai_summary || ai_tags)) {
+          console.log('📋 Using pre-provided AI data (File Storage), skipping analysis');
+        } else {
+          console.log('🚫 AI analysis disabled or not needed (File Storage)');
+        }
+
+        // Extract favicon if not provided (store in favicon field, not custom_favicon)
+        let extractedFaviconUrl = null;
+        if (url) {
+          console.log('🔍 Extracting favicon for new bookmark (file storage):', url);
+          try {
+            const faviconResult = await FaviconExtractor.extractFavicon(url);
+            if (faviconResult.success && faviconResult.faviconUrl) {
+              extractedFaviconUrl = faviconResult.faviconUrl;
+              console.log(`✅ Favicon extracted successfully: ${faviconResult.source} - ${extractedFaviconUrl}`);
+            } else {
+              console.warn(`⚠️ Favicon extraction failed, using fallback: ${faviconResult.error || 'Unknown error'}`);
+              extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+            }
+          } catch (error) {
+            console.error('❌ Favicon extraction error:', error);
+            extractedFaviconUrl = FaviconExtractor.generateFallbackFavicon(url);
+          }
+        }
+
+        const newId = Math.max(0, ...allBookmarks.map(b => b.id)) + 1;
+        // Convert priority string to number: low=1, medium=2, high=3
+        const priorityMap: Record<string, number> = { low: 1, medium: 2, high: 3 };
+        const priorityNum = typeof priority === 'string' ? (priorityMap[priority.toLowerCase()] || 2) : (priority || 2);
+        const newBookmark: Bookmark = {
+          id: newId,
+          user_id: userId,
+          priority: priorityNum,
+          title,
+          url,
+          description: description || ai.summary || '',
+          category: category || ai.category || 'General',
+          tags: tags || ai.tags || [],
+          ai_summary: ai.summary || null,
+          ai_tags: ai.tags || [],
+          ai_category: ai.category || null,
+          notes: notes || '',
+          relatedBookmarks: relatedBookmarks || [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          visits: 0,
+          time_spent: 0,
+          site_health: 'working' as const,
+          healthCheckCount: 0,
+          last_health_check: null,
+          customBackground
+        };
+        // Apply visuals conditionally to avoid type issues and unintended wipes
+        const nbAny = newBookmark as any;
+        if (extractedFaviconUrl != null) nbAny.favicon = extractedFaviconUrl;
+
+        allBookmarks.push(newBookmark);
+        await saveBookmarksToFile(allBookmarks);
+        return NextResponse.json({ success: true, bookmark: newBookmark, message: 'Bookmark created successfully' });
+      }
+    } else {
+      console.error('❌ No storage method available - USE_SUPABASE:', USE_SUPABASE, 'USE_FILES_FALLBACK:', USE_FILES_FALLBACK);
+      return NextResponse.json({ error: 'No storage method available' }, { status: 500 });
+    }
+
+  } catch (error) {
+    console.error('❌ POST /api/bookmarks - Unexpected error occurred:', error);
+    console.error('❌ Error stack:', (error as Error).stack);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const bookmarkId = searchParams.get('id');
+
+    if (!bookmarkId) {
+      return NextResponse.json(
+        { error: 'Bookmark ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Use the same user ID as GET method for consistency
+    const existingUserId = '48e1b5b9-3b0f-4ccb-8b34-831b1337fc3f'; // Real user from database
+    const userId = existingUserId;
+    console.log(`[API] Using existing userId for deletion: ${userId}`);
+
+    console.log(`🗑️ Deleting bookmark ${bookmarkId} for user ${userId}`);
+
+    if (USE_SUPABASE && supabase) {
+      const db = adminSupabase || supabase;
+
+      // Always attempt to delete in BOTH tables to avoid duplicates resurfacing via GET merge
+      let deletedFromUser: any[] | null = null;
+      let deletedFromLegacy: any[] | null = null;
+      let deleteErrors: string[] = [];
+
+      // Delete from user_bookmarks
+      try {
+        // Try constrained by user_id first (covers user-owned and null-owned rows via OR)
+        const delUser = await db
+          .from('user_bookmarks')
+          .delete()
+          .eq('id', bookmarkId)
+          .or(`user_id.eq.${userId},user_id.is.null`)
+          .select('*');
+
+        if (delUser.error) {
+          console.warn('⚠️ user_bookmarks constrained delete failed:', delUser.error.message);
+          // If the record might be null-owned and constrained delete failed due to RLS, try id-only with admin
+          if (adminSupabase) {
+            const idOnly = await adminSupabase
+              .from('user_bookmarks')
+              .delete()
+              .eq('id', bookmarkId)
+              .select('*');
+            if (!idOnly.error) deletedFromUser = idOnly.data as any[];
+          } else {
+            deleteErrors.push(`user_bookmarks: ${delUser.error.message}`);
+          }
+        } else {
+          deletedFromUser = delUser.data as any[];
+        }
+      } catch (e: any) {
+        console.warn('⚠️ Exception deleting from user_bookmarks:', e?.message || e);
+        deleteErrors.push(`user_bookmarks exception: ${e?.message || String(e)}`);
+      }
+
+      // Delete from bookmarks (legacy)
+      try {
+        const delLegacy = await db
+          .from('bookmarks')
+          .delete()
+          .eq('id', bookmarkId)
+          .or(`user_id.eq.${userId},user_id.is.null`)
+          .select('*');
+
+        if (delLegacy.error) {
+          console.warn('⚠️ bookmarks constrained delete failed:', delLegacy.error.message);
+          if (adminSupabase) {
+            const idOnly = await adminSupabase
+              .from('bookmarks')
+              .delete()
+              .eq('id', bookmarkId)
+              .select('*');
+            if (!idOnly.error) deletedFromLegacy = idOnly.data as any[];
+          } else {
+            deleteErrors.push(`bookmarks: ${delLegacy.error.message}`);
+          }
+        } else {
+          deletedFromLegacy = delLegacy.data as any[];
+        }
+      } catch (e: any) {
+        console.warn('⚠️ Exception deleting from bookmarks:', e?.message || e);
+        deleteErrors.push(`bookmarks exception: ${e?.message || String(e)}`);
+      }
+
+      const totalDeleted = (deletedFromUser?.length || 0) + (deletedFromLegacy?.length || 0);
+      if (totalDeleted > 0) {
+        console.log(`✅ Deleted bookmark ${bookmarkId}. user_bookmarks=${deletedFromUser?.length || 0}, bookmarks=${deletedFromLegacy?.length || 0}`);
+        return NextResponse.json({
+          success: true,
+          message: 'Bookmark deleted successfully',
+          deleted_counts: {
+            user_bookmarks: deletedFromUser?.length || 0,
+            bookmarks: deletedFromLegacy?.length || 0,
+          }
+        });
+      }
+
+      console.warn('⚠️ No rows deleted for bookmark:', bookmarkId, 'errors:', deleteErrors);
+      return NextResponse.json({ error: 'Bookmark not found or access denied' }, { status: 404 });
+    } else if (USE_FILES_FALLBACK) {
+      const allBookmarks = await loadBookmarks();
+
+      // Handle both string and number IDs, and include null user_id for testing
+      const bookmarkToDelete = allBookmarks.find(b => {
+        const idMatch = String(b.id) === String(bookmarkId);
+        const userMatch = b.user_id === userId || b.user_id === null;
+        return idMatch && userMatch;
+      });
+
+      if (!bookmarkToDelete) {
+        console.log(`❌ Bookmark not found: ID=${bookmarkId}, User=${userId}`);
+        return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 });
+      }
+
+      const updatedBookmarks = allBookmarks.filter(b => {
+        const idMatch = String(b.id) === String(bookmarkId);
+        const userMatch = b.user_id === userId || b.user_id === null;
+        return !(idMatch && userMatch);
+      });
+
+      await saveBookmarksToFile(updatedBookmarks);
+      console.log(`✅ Successfully deleted bookmark (file): ${bookmarkToDelete.title}`);
+      return NextResponse.json({ success: true, message: 'Bookmark deleted successfully' });
+    } else {
+      return NextResponse.json({ error: 'No storage method available' }, { status: 500 });
+    }
+
+  } catch (error) {
+    console.error('❌ Error deleting bookmark:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}

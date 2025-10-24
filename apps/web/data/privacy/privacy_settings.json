@@ -1,0 +1,39 @@
+[
+  {
+    "user_id": "dev-user-123",
+    "profile_visibility": "private",
+    "data_sharing": {
+      "analytics": false,
+      "marketing": false,
+      "research": false,
+      "third_parties": false
+    },
+    "data_retention": {
+      "activity_logs_days": 365,
+      "deleted_items_days": 30,
+      "session_data_days": 90
+    },
+    "communication_preferences": {
+      "email_notifications": true,
+      "push_notifications": true,
+      "sms_notifications": false,
+      "marketing_emails": false,
+      "product_updates": true,
+      "security_alerts": true
+    },
+    "cookie_preferences": {
+      "essential": true,
+      "functional": true,
+      "analytics": false,
+      "marketing": false
+    },
+    "data_processing_purposes": [
+      "service_provision",
+      "account_management",
+      "security"
+    ],
+    "third_party_integrations": {},
+    "created_at": "2025-07-12T10:03:30.302Z",
+    "updated_at": "2025-07-12T10:03:30.302Z"
+  }
+]

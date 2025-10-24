@@ -1,0 +1,25 @@
+[
+  {
+    "id": "d1321bd1-a7d2-450e-b78b-191f48fcede7",
+    "metric_type": "overall",
+    "time_period": "2025-07-12",
+    "total_feedback": 1,
+    "accuracy_scores": {
+      "excellent": 0,
+      "good": 1,
+      "average": 0,
+      "poor": 0,
+      "very_poor": 0
+    },
+    "average_rating": 4,
+    "improvement_areas": [],
+    "top_issues": [],
+    "trends": {
+      "improving": true,
+      "change_percentage": 0,
+      "period_comparison": "previous_month"
+    },
+    "created_at": "2025-07-12T09:48:53.274Z",
+    "updated_at": "2025-07-12T09:48:53.274Z"
+  }
+]

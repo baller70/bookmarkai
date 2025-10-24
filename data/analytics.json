@@ -1,0 +1,38 @@
+[
+  {
+    "bookmark_id": "304",
+    "visits": 9,
+    "sessionCount": 9,
+    "weeklyVisits": 9,
+    "monthlyVisits": 9,
+    "lastVisited": "2025-08-30T07:43:52.774Z",
+    "timeSpent": 6
+  },
+  {
+    "bookmark_id": "305",
+    "visits": 5,
+    "sessionCount": 5,
+    "weeklyVisits": 5,
+    "monthlyVisits": 5,
+    "lastVisited": "2025-08-30T07:42:05.297Z",
+    "timeSpent": 1
+  },
+  {
+    "bookmark_id": "306",
+    "visits": 2,
+    "sessionCount": 2,
+    "weeklyVisits": 2,
+    "monthlyVisits": 2,
+    "lastVisited": "2025-08-30T07:41:40.504Z",
+    "timeSpent": 1
+  },
+  {
+    "bookmark_id": "303",
+    "visits": 3,
+    "sessionCount": 3,
+    "weeklyVisits": 3,
+    "monthlyVisits": 3,
+    "lastVisited": "2025-08-30T08:00:50.698Z",
+    "timeSpent": 0
+  }
+]

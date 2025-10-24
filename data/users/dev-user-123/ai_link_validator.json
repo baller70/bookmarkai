@@ -1,0 +1,5 @@
+{
+  "check_frequency": "weekly",
+  "auto_remove_broken": false,
+  "notify_on_broken": true
+}

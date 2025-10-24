@@ -1,0 +1,503 @@
+/* Novel Editor Styles */
+.ProseMirror {
+  @apply p-12 px-8 sm:px-12;
+}
+
+.ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+/* Custom image styles */
+.ProseMirror img {
+  transition: filter 0.1s ease-in-out;
+}
+
+.ProseMirror img:hover {
+  cursor: pointer;
+  filter: brightness(90%);
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 3px solid #5abbf7;
+  filter: brightness(90%);
+}
+
+.img-placeholder {
+  position: relative;
+}
+
+.img-placeholder:before {
+  content: "";
+  box-sizing: border-box;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid #e7e5e4;
+  border-top-color: #1c1917;
+  animation: spinning 0.6s linear infinite;
+}
+
+@keyframes spinning {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Custom TODO list checkboxes */
+ul[data-type="taskList"] li > label {
+  margin-right: 0.2rem;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media screen and (max-width: 768px) {
+  ul[data-type="taskList"] li > label {
+    margin-right: 0.5rem;
+  }
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: hsl(var(--background));
+  margin: 0;
+  cursor: pointer;
+  width: 1.2em;
+  height: 1.2em;
+  position: relative;
+  top: 0; /* keep on same baseline */
+  border: 2px solid hsl(var(--border));
+  margin-right: 0.3rem;
+  display: grid;
+  place-content: center;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:hover {
+  background-color: hsl(var(--accent));
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:active {
+  background-color: hsl(var(--accent));
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em;
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+ul[data-type="taskList"] li > div > p {
+  margin: 0; /* keep text on same row as checkbox */
+}
+
+ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+/* Overwrite tippy-box original max-width */
+.tippy-box {
+  max-width: 400px !important;
+}
+/* Enhanced Task List card styling (matches provided screenshot style) */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0 1rem 0;
+}
+
+ul[data-type="taskList"] li {
+  display: grid;
+  grid-template-columns: 1.6em 1fr; /* checkbox | content */
+  align-items: center;
+  column-gap: 0.75rem;
+  background: #f8fafc; /* slate-50 */
+  border: 1px solid #e5e7eb; /* gray-200 */
+  border-radius: 0.5rem; /* rounded-lg */
+  padding: 0.6rem 0.75rem;
+}
+
+/* Content should take remaining width */
+ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+/* Checked state: light success background & border */
+ul[data-type="taskList"] li[data-checked="true"] {
+  background: #f0fdf4; /* green-50 */
+  border-color: #86efac; /* green-300 */
+}
+
+/* Custom circular checkbox to match pill check from screenshot */
+ul[data-type="taskList"] li > label input[type="checkbox"] {
+  border-radius: 9999px; /* rounded-full */
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background-color: #10b981; /* emerald-500 */
+  border-color: #10b981;
+}
+
+.ProseMirror:not(.dragging) .ProseMirror-selectednode {
+  outline: none !important;
+  background-color: var(--novel-highlight-blue);
+  transition: background-color 0.2s;
+  box-shadow: none;
+}
+
+/* Custom Youtube Video CSS */
+iframe {
+  border: 8px solid #ffd00027;
+  border-radius: 4px;
+  min-width: 200px;
+  min-height: 200px;
+  display: block;
+  outline: 0px solid transparent;
+}
+
+div[data-youtube-video] > iframe {
+  cursor: move;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+
+.ProseMirror-selectednode iframe {
+  transition: outline 0.15s;
+  outline: 6px solid #fbbf24;
+}
+
+@media only screen and (max-width: 480px) {
+  div[data-youtube-video] > iframe {
+    max-height: 50px;
+  }
+}
+
+@media only screen and (max-width: 720px) {
+  div[data-youtube-video] > iframe {
+    max-height: 100px;
+  }
+}
+
+/* CSS for bold coloring and highlighting issue*/
+span[style] > strong {
+  color: inherit;
+}
+
+mark[style] > strong {
+  color: inherit;
+}
+
+/* Essential styles for basic formatting elements - Maximum specificity */
+div.novel-editor .ProseMirror blockquote,
+.novel-editor .ProseMirror blockquote,
+.ProseMirror blockquote,
+blockquote {
+  border-left: 4px solid #e5e7eb !important;
+  margin: 1rem 0 !important;
+  padding-left: 1rem !important;
+  font-style: italic !important;
+  color: #6b7280 !important;
+  background-color: #f9fafb !important;
+  border-radius: 0.25rem !important;
+}
+
+div.novel-editor .ProseMirror ul:not([data-type="taskList"]),
+.novel-editor .ProseMirror ul:not([data-type="taskList"]),
+.ProseMirror ul:not([data-type="taskList"]),
+ul:not([data-type="taskList"]) {
+  list-style-type: disc !important;
+  margin: 1rem 0 !important;
+  padding-left: 1.5rem !important;
+  list-style-position: outside !important;
+}
+
+div.novel-editor .ProseMirror ol,
+.novel-editor .ProseMirror ol,
+.ProseMirror ol,
+ol {
+  list-style-type: decimal !important;
+  margin: 1rem 0 !important;
+  padding-left: 1.5rem !important;
+  list-style-position: outside !important;
+}
+
+div.novel-editor .ProseMirror li,
+.novel-editor .ProseMirror li,
+.ProseMirror li,
+li {
+  margin: 0.25rem 0 !important;
+  display: list-item !important;
+}
+
+div.novel-editor .ProseMirror img,
+.novel-editor .ProseMirror img,
+.ProseMirror img,
+img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 0.5rem !important;
+  margin: 1rem 0 !important;
+  display: block !important;
+}
+
+
+/* ---- Task metadata visual indicators ---- */
+ul[data-type="taskList"] li.task-item[data-status="not_started"] {
+  border-left: 4px solid #cbd5e1; /* slate-300 */
+}
+ul[data-type="taskList"] li.task-item[data-status="in_progress"] {
+  border-left: 4px solid #60a5fa; /* blue-400 */
+  background-color: #eff6ff; /* blue-50 */
+}
+ul[data-type="taskList"] li.task-item[data-status="completed"] {
+  border-left: 4px solid #10b981; /* emerald-500 */
+  background-color: #ecfdf5; /* emerald-50 */
+}
+ul[data-type="taskList"] li.task-item[data-status="on_hold"] {
+  border-left: 4px solid #f59e0b; /* amber-500 */
+  background-color: #fffbeb; /* amber-50 */
+}
+ul[data-type="taskList"] li.task-item[data-status="cancelled"] {
+  border-left: 4px solid #94a3b8; /* slate-400 */
+  background-color: #f8fafc; /* slate-50 */
+  opacity: 0.8;
+}
+
+/* Priority accents */
+ul[data-type="taskList"] li.task-item[data-priority="low"] {
+  box-shadow: inset 0 0 0 1px #e5e7eb; /* gray-200 */
+}
+ul[data-type="taskList"] li.task-item[data-priority="medium"] {
+  box-shadow: inset 0 0 0 1px #cbd5e1; /* slate-300 */
+}
+ul[data-type="taskList"] li.task-item[data-priority="high"] {
+  box-shadow: inset 0 0 0 2px #f97316; /* orange-500 */
+}
+ul[data-type="taskList"] li.task-item[data-priority="critical"] {
+  box-shadow: inset 0 0 0 2px #ef4444; /* red-500 */
+}
+
+/* Overdue */
+ul[data-type="taskList"] li.task-item[data-overdue="true"] {
+  border-left-color: #ef4444 !important; /* red-500 */
+  background-color: #fef2f2; /* red-50 */
+}
+
+
+/* Standalone metadata nodes */
+.tt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  background: #eef2ff; /* indigo-50 */
+  color: #3730a3; /* indigo-800 */
+  border: 1px solid #c7d2fe; /* indigo-200 */
+  margin-right: 0.25rem;
+}
+.tt-status-badge[data-status="completed"] { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+.tt-status-badge[data-status="in_progress"] { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.tt-status-badge[data-status="on_hold"] { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.tt-status-badge[data-status="cancelled"] { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+
+.tt-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  background: #f1f5f9; /* slate-100 */
+  color: #0f172a; /* slate-900 */
+  border: 1px solid #e2e8f0; /* slate-200 */
+  margin-right: 0.25rem;
+}
+.tt-priority-badge[data-priority="high"] { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.tt-priority-badge[data-priority="critical"] { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+.tt-date-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  background: #f0f9ff; /* sky-50 */
+  color: #0c4a6e; /* sky-900 */
+  border: 1px solid #bae6fd; /* sky-200 */
+  margin-right: 0.25rem;
+}
+
+.tt-assignee-chip,
+.tt-notification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  background: #f8fafc; /* slate-50 */
+  color: #0f172a; /* slate-900 */
+  border: 1px solid #e2e8f0; /* slate-200 */
+  margin-right: 0.25rem;
+}
+
+.tt-progress-block {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9; /* slate-100 */
+  border: 1px solid #e2e8f0; /* slate-200 */
+  color: #0f172a;
+  margin: 0.5rem 0;
+}
+
+
+/* Progress block inner elements */
+.tt-progress-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tt-progress-desc {
+  color: #475569; /* slate-600 */
+  font-size: 0.875rem; /* text-sm */
+  margin-bottom: 4px;
+}
+.tt-progress-line {
+  font-size: 0.875rem; /* text-sm */
+  color: #334155; /* slate-700 */
+}
+
+
+/* --- Enhanced visual design for TipTap metadata blocks --- */
+/* Notification badge */
+.tt-notification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); /* indigo-50 to 100 */
+  color: #1f2937; /* gray-800 */
+  border: 1px solid #c7d2fe; /* indigo-200 */
+  box-shadow: 0 1px 0 rgba(99,102,241,.15);
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+}
+.tt-notification-badge::before {
+  content: "🔔";
+  font-size: 0.95em;
+}
+.tt-notification-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 4px 10px rgba(99,102,241,.18);
+}
+
+/* Status badge */
+.tt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: .01em;
+  border: 1px solid transparent;
+  transition: transform .12s ease, filter .12s ease;
+}
+.tt-status-badge::before {
+  content: "●";
+  font-size: 0.7rem;
+}
+.tt-status-badge[data-status="completed"] {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46; border-color: #a7f3d0;
+}
+.tt-status-badge[data-status="in_progress"] {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8; border-color: #bfdbfe;
+}
+.tt-status-badge[data-status="on_hold"] {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  color: #92400e; border-color: #fde68a;
+}
+.tt-status-badge[data-status="not_started"] {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #334155; border-color: #e2e8f0;
+}
+.tt-status-badge[data-status="cancelled"] {
+  background: linear-gradient(135deg, #f8fafc 0%, #e5e7eb 100%);
+  color: #475569; border-color: #cbd5e1; opacity: .9;
+}
+
+/* Priority badge */
+.tt-priority-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: 0.2rem 0.6rem; border-radius: .5rem;
+  font-size: .75rem; line-height: 1rem; font-weight: 600;
+  border: 1px solid transparent; transition: transform .12s ease;
+}
+.tt-priority-badge::before { content: "⚑"; font-size: .8rem; }
+.tt-priority-badge[data-priority="low"] { background: linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%); color:#0f172a; border-color:#e2e8f0; }
+.tt-priority-badge[data-priority="medium"] { background: linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%); color:#9a3412; border-color:#fed7aa; }
+.tt-priority-badge[data-priority="high"] { background: linear-gradient(135deg,#fef3c7 0%,#fde68a 100%); color:#92400e; border-color:#fcd34d; }
+.tt-priority-badge[data-priority="critical"] { background: linear-gradient(135deg,#fee2e2 0%,#fecaca 100%); color:#991b1b; border-color:#fca5a5; }
+.tt-priority-badge:hover { transform: translateY(-1px); }
+
+/* Due date chip */
+.tt-date-chip {
+  display: inline-flex; align-items: center; gap:.35rem;
+  padding: 0.2rem 0.55rem; border-radius: .5rem;
+  font-size: .75rem; line-height: 1rem; font-weight: 600;
+  background: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
+  color:#0c4a6e; border:1px solid #bae6fd; transition: filter .12s ease, transform .12s ease;
+}
+.tt-date-chip::before { content: "📅"; font-size: .85rem; }
+.tt-date-chip:hover { transform: translateY(-1px); filter: brightness(1.04); }
+
+/* Progress block as a card */
+.tt-progress-block { position: relative; overflow: hidden; border-radius: .75rem; border:1px solid #e5e7eb; background: linear-gradient(180deg,#ffffff 0%, #f9fafb 100%); box-shadow: 0 1px 0 rgba(15,23,42,.04); }
+.tt-progress-title { font-weight: 700; color:#0f172a; margin-bottom:.25rem; }
+.tt-progress-desc { color:#475569; font-size:.875rem; margin-bottom:.5rem; }
+.tt-progress-meter { position: relative; width:100%; height:10px; background:#e5e7eb; border-radius:9999px; overflow:hidden; }
+.tt-progress-fill { height:100%; background: linear-gradient(90deg,#60a5fa 0%, #2563eb 100%); border-radius:9999px; transition: width .25s ease; }
+.tt-progress-line { font-size:.75rem; color:#334155; margin-top:.35rem; }
+
+/* Interactive focus/hover visuals for inline badges */
+.tt-notification-badge, .tt-status-badge, .tt-priority-badge, .tt-date-chip {
+  cursor: pointer;
+}

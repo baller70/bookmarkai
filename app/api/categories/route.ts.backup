@@ -1,0 +1,598 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { writeFile, readFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { authenticateUser } from '@/lib/auth-utils';
+import { createClient } from '@supabase/supabase-js';
+import { unstable_cache } from 'next/cache';
+
+export const dynamic = 'force-dynamic'; // Prevent caching
+
+const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
+
+// Resolve writable data directory (Vercel allows writes only to /tmp)
+const DATA_BASE_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/data' : join(process.cwd(), 'data'))
+// Supabase init (if configured)
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+// Disable Supabase - using Prisma now
+const USE_SUPABASE = false
+// Enable file fallback for debugging
+const DISABLE_FILE_FALLBACK = false
+const supabase = null
+
+// File-based storage for persistent categories
+const CATEGORIES_FILE = join(DATA_BASE_DIR, 'categories.json');
+
+interface Category {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  user_id: string;
+  bookmarkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Ensure data directory exists
+async function ensureDataDirectory() {
+  const dataDir = DATA_BASE_DIR
+  if (!existsSync(dataDir)) {
+    await mkdir(dataDir, { recursive: true });
+  }
+}
+
+// Load categories from file
+async function loadCategories(): Promise<Category[]> {
+  try {
+    await ensureDataDirectory();
+    if (!existsSync(CATEGORIES_FILE)) {
+      return [];
+    }
+    const data = await readFile(CATEGORIES_FILE, 'utf-8');
+    return JSON.parse(data) as Category[];
+  } catch (error) {
+    console.error('Error loading categories:', error);
+    return [];
+  }
+}
+
+// Save categories to file
+async function saveCategories(categories: Category[]): Promise<void> {
+  try {
+    await ensureDataDirectory();
+    await writeFile(CATEGORIES_FILE, JSON.stringify(categories, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving categories:', error);
+    throw error;
+  }
+}
+
+// Simple UUID v4 format check (8-4-4-4-12 hex)
+function isUuid(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
+}
+
+// Load bookmarks to get actual bookmark counts per category
+async function loadBookmarks(): Promise<any[]> {
+  try {
+    const BOOKMARKS_FILE = join(DATA_BASE_DIR, 'bookmarks.json');
+    if (!existsSync(BOOKMARKS_FILE)) {
+      return [];
+    }
+    const data = await readFile(BOOKMARKS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error loading bookmarks:', error);
+    return [];
+  }
+}
+
+// Unified function to get bookmark count for a specific category
+// Prefer folder_id linkage when present; fall back to matching by category name when folder_id is null
+async function getBookmarkCountForCategory(categoryName: string, userId: string, categoryId?: string): Promise<number> {
+  if (!USE_SUPABASE || !supabase) return 0
+
+  const normalize = (s: any) => (typeof s === 'string' ? s.trim().toLowerCase() : '')
+  const target = normalize(categoryName)
+  const catId = categoryId ? String(categoryId) : null
+
+  try {
+    // 1) Pull rows from user_bookmarks for this user (authoritative per-user table)
+    let userRows: Array<{ category: string | null; folder_id?: string | null }> = []
+    if (isUuid(userId)) {
+      let ubSel = await supabase
+        .from('user_bookmarks')
+        .select('category,folder_id')
+        .eq('user_id', userId)
+      if (ubSel.error) {
+        // Fallback on deployments without folder_id column
+        const retry = await supabase
+          .from('user_bookmarks')
+          .select('category')
+          .eq('user_id', userId)
+        userRows = (retry.data as any[])?.map(r => ({ category: r.category ?? null })) || []
+      } else {
+        userRows = (ubSel.data as any[]) || []
+      }
+    }
+
+    // 2) Pull rows from legacy/global bookmarks (user-specific and global null rows)
+    const orFilter = isUuid(userId)
+      ? `user_id.eq.${userId},user_id.is.null`
+      : 'user_id.is.null'
+    let legacyRowsAny: any[] = []
+    const legSel = await supabase
+      .from('bookmarks')
+      .select('category,folder_id')
+      .or(orFilter)
+    if (legSel.error) {
+      // Fallback when legacy table lacks folder_id
+      const retry = await supabase
+        .from('bookmarks')
+        .select('category')
+        .or(orFilter)
+      legacyRowsAny = (retry.data as any[]) || []
+    } else {
+      legacyRowsAny = (legSel.data as any[]) || []
+    }
+
+    const total = [...userRows, ...legacyRowsAny].reduce((acc: number, row: any) => {
+      const matchesByFolder = !!(catId && 'folder_id' in row && row?.folder_id && String(row.folder_id) === catId)
+      const matchesByName = normalize(row?.category) === target && (!('folder_id' in row) || !row.folder_id)
+      return acc + ((matchesByFolder || matchesByName) ? 1 : 0)
+    }, 0)
+    return total
+  } catch (e) {
+    console.error(`Error counting bookmarks for category ${categoryName}:`, e)
+    // Do not break counts entirely; return 0 only for this category
+    return 0
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await authenticateUser(request);
+    const { searchParams } = new URL(request.url);
+    const qpUserId = searchParams.get('user_id');
+
+    // Prefer explicit user_id from query when provided and valid.
+    // This avoids mismatches during auth-bypass/dev scenarios and keeps UI tests deterministic.
+    const userId = (qpUserId && isUuid(qpUserId))
+      ? qpUserId
+      : ((authResult.success && authResult.userId) ? authResult.userId : DEV_USER_ID);
+
+    console.log(`--- NEW GET /api/categories REQUEST for user: ${userId} (auth:${authResult.success ? 'ok' : 'none'}, qp:${qpUserId || 'none'}) ---`);
+
+    let categoriesWithCounts: any[] = []
+
+    if (USE_SUPABASE && supabase) {
+      console.log('Fetching categories from Supabase...')
+
+      // Fetch user-owned categories if userId is a valid UUID
+      let userCats: any[] = []
+      if (isUuid(userId)) {
+        const { data: catsU, error: errU } = await supabase
+          .from('categories')
+          .select('id,name,description,color,created_at,updated_at,user_id')
+          .eq('user_id', userId)
+        if (errU) throw new Error(errU.message)
+        userCats = catsU || []
+      }
+
+      // Also fetch global categories (user_id is null) to support non-UUID auth (e.g., Clerk)
+      const { data: catsN, error: errN } = await supabase
+        .from('categories')
+        .select('id,name,description,color,created_at,updated_at,user_id')
+        .is('user_id', null)
+      if (errN) throw new Error(errN.message)
+
+      // Deduplicate by name, preferring user-specific category over global
+      const byName = new Map<string, any>()
+      for (const c of catsN || []) byName.set(c.name, c)
+      for (const c of userCats) byName.set(c.name, c)
+      const cats = Array.from(byName.values())
+      console.log(`Found ${cats?.length || 0} category rows after merge.`)
+
+      categoriesWithCounts = await Promise.all(
+        (cats || []).map(async (c: any) => {
+          const count = await getBookmarkCountForCategory(c.name, userId, c.id)
+          return {
+            id: c.id,
+            name: c.name,
+            description: c.description || '',
+            color: c.color || '#3B82F6',
+            bookmarkCount: count,
+            createdAt: c.created_at,
+            updatedAt: c.updated_at,
+          }
+        })
+      )
+    } else {
+      // Use file-based storage as fallback
+      console.log('Using file-based storage for categories...')
+      const allCategories = await loadCategories();
+      const userCategories = allCategories.filter(cat => cat.user_id === userId);
+      const allBookmarks = await loadBookmarks();
+      
+      categoriesWithCounts = userCategories.map(cat => {
+        const bookmarkCount = allBookmarks.filter(
+          bookmark => bookmark.user_id === userId && bookmark.category === cat.name
+        ).length;
+        
+        return {
+          id: cat.id,
+          name: cat.name,
+          description: cat.description || '',
+          color: cat.color || '#3B82F6',
+          bookmarkCount,
+          createdAt: cat.createdAt,
+          updatedAt: cat.updatedAt,
+        };
+      });
+    }
+
+    // Always return categories sorted alphabetically by name (case-insensitive)
+    const sorted = [...categoriesWithCounts].sort((a, b) =>
+      String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' })
+    )
+    return NextResponse.json({
+      success: true,
+      categories: sorted,
+      total: sorted.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { name, description, color, user_id } = body;
+
+    // Prefer authenticated user; fallback to dev user if missing
+    let uid = user_id as string | undefined
+    try {
+      const auth = await authenticateUser(request)
+      if (auth?.success && auth.userId) uid = auth.userId
+    } catch {}
+    if (!uid) uid = DEV_USER_ID
+
+    // Validate required fields
+    if (!name || !uid) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+
+    // Try Supabase first
+    if (USE_SUPABASE && supabase) {
+      try {
+        // If uid is not a UUID (e.g., Clerk id), avoid filtering by user_id and insert as global
+        if (isUuid(uid)) {
+          const { data: existing, error: existErr } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('user_id', uid)
+            .ilike('name', name)
+            .limit(1)
+          if (existErr) throw existErr
+          if (existing && existing.length > 0) {
+            return NextResponse.json({ error: 'Category already exists' }, { status: 400 })
+          }
+        } else {
+          const { data: existingGlobal, error: existErrGlobal } = await supabase
+            .from('categories')
+            .select('id')
+            .is('user_id', null)
+            .ilike('name', name)
+            .limit(1)
+          if (existErrGlobal) throw existErrGlobal
+          if (existingGlobal && existingGlobal.length > 0) {
+            return NextResponse.json({ error: 'Category already exists' }, { status: 400 })
+          }
+        }
+
+        // Try insert: use uid if UUID, otherwise insert as global (user_id null)
+        console.log('🔄 Attempting Supabase insert with:', {
+          user_id: isUuid(uid) ? uid : null,
+          name,
+          description: description || '',
+          color: color || '#3B82F6'
+        });
+
+        let insertResult = await supabase
+          .from('categories')
+          .insert([{ user_id: isUuid(uid) ? uid : null, name, description: description || '', color: color || '#3B82F6' }])
+          .select('id,name,description,color,created_at,updated_at')
+          .single()
+
+        console.log('📡 Supabase insert result:', insertResult);
+
+        if (insertResult.error && insertResult.error.code === '23503') {
+          console.log('❌ Supabase insert error:', insertResult.error);
+          console.log('🔄 FK constraint failed, retrying with null user_id for dev');
+
+          insertResult = await supabase
+            .from('categories')
+            .insert([{ user_id: null, name, description: description || '', color: color || '#3B82F6' }])
+            .select('id,name,description,color,created_at,updated_at')
+            .single()
+
+          console.log('📡 Supabase retry result:', insertResult);
+        }
+
+        const { data: inserted, error: insErr } = insertResult
+        if (insErr) {
+          console.error('❌ Supabase categories insert error:', insErr);
+          console.error('❌ Error details:', JSON.stringify(insErr, null, 2));
+          console.error('❌ Error code:', insErr.code);
+          console.error('❌ Error message:', insErr.message);
+          throw insErr;
+        }
+        return NextResponse.json({ success: true, category: {
+          id: inserted.id,
+          name: inserted.name,
+          description: inserted.description || '',
+          color: inserted.color || '#3B82F6',
+          bookmarkCount: 0,
+          createdAt: inserted.created_at,
+          updatedAt: inserted.updated_at
+        }, message: 'Category created successfully' })
+      } catch (e) {
+        console.error('❌ Supabase categories insert failed:', (e as any)?.message);
+        console.error('❌ Full error:', e);
+
+        if (!DISABLE_FILE_FALLBACK) {
+          console.log('🔄 Falling back to file storage due to Supabase error');
+          // Let it fall through to file storage below
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: `Database error: ${(e as any)?.message || 'Unknown error'}`
+          }, { status: 500 });
+        }
+      }
+    }
+
+    // Use file-based storage as final fallback
+    console.log('Using file-based storage to create category...')
+    const allCategories = await loadCategories();
+    
+    // Check for duplicates
+    const existingCategory = allCategories.find(
+      cat => cat.user_id === uid && cat.name.toLowerCase() === name.toLowerCase()
+    );
+    
+    if (existingCategory) {
+      return NextResponse.json({ error: 'Category already exists' }, { status: 400 });
+    }
+    
+    const newCategory: Category = {
+      id: `cat-${Date.now()}`,
+      user_id: uid,
+      name,
+      description: description || '',
+      color: color || '#3B82F6',
+      bookmarkCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    allCategories.push(newCategory);
+    await saveCategories(allCategories);
+    
+    return NextResponse.json({ 
+      success: true, 
+      category: newCategory, 
+      message: 'Category created successfully' 
+    });
+
+  } catch (error) {
+    console.error('Error creating category:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, name, description, color, user_id } = body;
+
+    // Prefer authenticated user; fallback to dev user if missing
+    let uid = user_id as string | undefined
+    try {
+      const auth = await authenticateUser(request)
+      if (auth?.success && auth.userId) uid = auth.userId
+    } catch {}
+    if (!uid) uid = DEV_USER_ID
+
+    // Validate required fields
+    if (!id || !name || !uid) {
+      return NextResponse.json(
+        { error: 'ID, name, and user_id are required' },
+        { status: 400 }
+      );
+    }
+
+    if (USE_SUPABASE && supabase) {
+      // 1) Load old category name so we can migrate bookmarks referencing it
+      const { data: oldCat, error: fetchErr } = await supabase
+        .from('categories')
+        .select('id,name')
+        .eq('id', id)
+        .single();
+      if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+
+      const oldName = String(oldCat?.name || '').trim();
+
+      // 2) Update the category itself
+      const { data, error } = await supabase
+        .from('categories')
+        .update({ name, description: description || '', color: color || '#3B82F6' })
+        .eq('id', id)
+        .select('id,name,description,color,created_at,updated_at')
+        .single();
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      // 3) Migrate bookmarks that reference the old category NAME (do not touch folder_id here)
+      const nowIso = new Date().toISOString();
+      const trimmedOld = oldName.trim();
+      const trimmedNew = String(name || '').trim();
+      if (trimmedOld && trimmedNew) {
+        // Migrate rows in user_bookmarks for this user (exact name match, case-insensitive)
+        try {
+          if (isUuid(uid)) {
+            const { error: ubErr } = await supabase
+              .from('user_bookmarks')
+              .update({ category: trimmedNew, updated_at: nowIso })
+              .eq('user_id', uid)
+              .ilike('category', trimmedOld);
+            if (ubErr) console.warn('⚠️ user_bookmarks rename migration failed:', ubErr.message)
+          }
+        } catch (e) {
+          console.warn('⚠️ user_bookmarks rename migration threw:', (e as any)?.message)
+        }
+
+        // Migrate rows in bookmarks for this user OR dev/global (user_id null) to cover legacy inserts
+        try {
+          const { error: bmErr } = await supabase
+            .from('bookmarks')
+            .update({ category: trimmedNew, updated_at: nowIso })
+            // Match either this user or global dev rows
+            .or(isUuid(uid) ? `user_id.eq.${uid},user_id.is.null` : 'user_id.is.null')
+            .ilike('category', trimmedOld);
+          if (bmErr) console.warn('⚠️ bookmarks rename migration failed:', bmErr.message)
+        } catch (e) {
+          console.warn('⚠️ bookmarks rename migration threw:', (e as any)?.message)
+        }
+      }
+
+      return NextResponse.json({ success: true, category: {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        color: data.color || '#3B82F6',
+        bookmarkCount: 0,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      }, message: 'Category updated successfully' })
+    } else {
+      const allCategories = await loadCategories();
+      const categoryIndex = allCategories.findIndex(
+        cat => cat.id === id && cat.user_id === user_id
+      );
+      if (categoryIndex === -1) {
+        return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+      }
+      allCategories[categoryIndex] = {
+        ...allCategories[categoryIndex],
+        name,
+        description: description || '',
+        color: color || '#3B82F6',
+        updatedAt: new Date().toISOString()
+      };
+      await saveCategories(allCategories);
+      return NextResponse.json({ success: true, category: allCategories[categoryIndex], message: 'Category updated successfully' })
+    }
+
+  } catch (error) {
+    console.error('Error updating category:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    // Prefer authenticated user; fallback to dev user if missing
+    let uid: string | null = null
+    try {
+      const auth = await authenticateUser(request as any)
+      if (auth?.success && auth.userId) uid = auth.userId
+    } catch {}
+    if (!uid) uid = DEV_USER_ID
+
+    if (!id || !uid) {
+      return NextResponse.json(
+        { error: 'ID and user_id are required' },
+        { status: 400 }
+      );
+    }
+
+    if (USE_SUPABASE && supabase) {
+      // Get category name first - bookmarks use category name, not ID
+      const { data: catRow, error: catErr } = await supabase
+        .from('categories')
+        .select('id,name')
+        .eq('id', id)
+        .single()
+
+      if (catErr) {
+        console.error('❌ Error fetching category for deletion:', catErr)
+        return NextResponse.json({ error: catErr.message }, { status: 500 })
+      }
+
+      if (!catRow?.name) {
+        console.error('❌ Category not found for deletion')
+        return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+      }
+
+      // Count bookmarks with this category name
+      const count = await getBookmarkCountForCategory(catRow.name, uid);
+      console.log(`🔍 Category "${catRow.name}" (${id}) has ${count} bookmarks`)
+
+      if ((count as number) > 0) {
+        return NextResponse.json({
+          error: `Cannot delete category "${catRow.name}". It contains ${count} bookmarks. Please move or delete the bookmarks first.`
+        }, { status: 400 })
+      }
+      const { error: delErr } = await supabase.from('categories').delete().eq('id', id)
+      if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
+      return NextResponse.json({ success: true, message: 'Category deleted successfully' })
+    } else {
+      const allCategories = await loadCategories();
+      const allBookmarks = await loadBookmarks();
+      const categoryIndex = allCategories.findIndex(
+        cat => cat.id === id && cat.user_id === uid
+      );
+      if (categoryIndex === -1) {
+        return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+      }
+      const categoryToDelete = allCategories[categoryIndex];
+      const bookmarksInCategory = allBookmarks.filter(
+        bookmark => bookmark.user_id === uid && bookmark.category === categoryToDelete.name
+      );
+      if (bookmarksInCategory.length > 0) {
+        return NextResponse.json({ error: `Cannot delete category. It contains ${bookmarksInCategory.length} bookmarks. Please move or delete the bookmarks first.` }, { status: 400 });
+      }
+      allCategories.splice(categoryIndex, 1);
+      await saveCategories(allCategories);
+      return NextResponse.json({ success: true, message: 'Category deleted successfully' })
+    }
+
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
