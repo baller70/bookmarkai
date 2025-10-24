@@ -10,7 +10,6 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // Test credentials
         if (credentials?.email === 'test@example.com' && credentials?.password === 'test123') {
           return {
             id: '1',
@@ -24,11 +23,13 @@ const handler = NextAuth({
   ],
   pages: {
     signIn: '/login',
+    error: '/login',
   },
   session: {
     strategy: 'jwt',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only-change-in-production',
+  debug: process.env.NODE_ENV === 'development',
 })
 
 export { handler as GET, handler as POST }
