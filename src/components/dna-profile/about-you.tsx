@@ -1,7 +1,7 @@
 'use client'
 
+// TODO: Migrate to PostgreSQL/Prisma - Supabase demo imports removed
 import { useState, useEffect } from 'react'
-import { createDemoSupabaseClient, DEMO_USER_ID } from '../../../lib/supabase-demo'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -138,8 +138,6 @@ export function AboutYouComponent({ onProfileUpdate }: AboutYouComponentProps) {
   const [newSkill, setNewSkill] = useState('')
   const [newInterest, setNewInterest] = useState('')
 
-  const supabase = createDemoSupabaseClient()
-
   useEffect(() => {
     loadProfile()
 
@@ -158,12 +156,12 @@ export function AboutYouComponent({ onProfileUpdate }: AboutYouComponentProps) {
   const loadProfile = async () => {
     try {
       // Try to load from Supabase first using demo user ID
-      console.log('Loading profile from Supabase with demo user ID:', DEMO_USER_ID)
+      console.log('Loading profile from Supabase with demo user ID:', "demo-user")
 
       const { data: supabaseProfile, error } = await supabase
         .from('dna_profiles')
         .select('*')
-        .eq('user_id', DEMO_USER_ID)
+        .eq('user_id', "demo-user")
         .single()
 
       if (supabaseProfile && !error) {
@@ -212,7 +210,7 @@ export function AboutYouComponent({ onProfileUpdate }: AboutYouComponentProps) {
     setSaving(true)
     try {
       // Always use demo user ID (bypassing authentication)
-      const userId = DEMO_USER_ID
+      const userId = "demo-user"
       console.log('Saving profile with demo user ID:', userId)
 
       const profileData = {
@@ -378,12 +376,12 @@ export function AboutYouComponent({ onProfileUpdate }: AboutYouComponentProps) {
   // Optional Supabase upload that runs in background without blocking the UI
   const trySupabaseUpload = async (file: File) => {
     try {
-      console.log('Uploading file to Supabase storage with demo user ID:', DEMO_USER_ID)
+      console.log('Uploading file to Supabase storage with demo user ID:', "demo-user")
       console.log('File size:', file.size, 'File type:', file.type)
 
       // Create a unique filename with demo user ID
       const fileExt = file.name.split('.').pop()
-      const fileName = `${DEMO_USER_ID}/avatar-${Date.now()}.${fileExt}`
+      const fileName = `${"demo-user"}/avatar-${Date.now()}.${fileExt}`
 
       const { data, error } = await supabase.storage
         .from('avatars')
@@ -434,7 +432,7 @@ export function AboutYouComponent({ onProfileUpdate }: AboutYouComponentProps) {
       } catch {}
 
       // Clear Supabase avatar for demo user
-      const userId = DEMO_USER_ID
+      const userId = "demo-user"
       await supabase
         .from('dna_profiles')
         .update({ avatar_url: null, updated_at: new Date().toISOString() })

@@ -1,7 +1,7 @@
+// TODO: Migrate to PostgreSQL/Prisma - Supabase imports removed
 import React from 'react'
 // Temporarily disabled Supabase to show dashboard
-// import { createClientComponentClient } from '@/lib/supabase'
-// import Chat from '@/components/dashboard/Chat'
+// // import Chat from '@/components/dashboard/Chat'
 
 export default function Dashboard() {
   // const supabase = createClientComponentClient()

@@ -3,11 +3,7 @@
 import { CheckIcon } from '@heroicons/react/24/solid'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { loadStripe } from '@stripe/stripe-js'
-import { createClientComponentClient } from '@/lib/supabase'
-
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+import { useSession } from 'next-auth/react'
 
 interface PricingCardProps {
   title: string
@@ -31,7 +27,7 @@ const PricingCard = ({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const { data: session } = useSession()
 
   const handleSubscribe = async () => {
     try {
@@ -39,8 +35,6 @@ const PricingCard = ({
       setError(null)
 
       // Check if user is authenticated
-      const { data: { session } } await supabase.auth.getSession()
-
       if (!session) {
         // If not authenticated, redirect to login with return URL
         const returnUrl = '/dashboard/billing'

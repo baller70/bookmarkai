@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@/lib/supabase'
+import { s grIxact'next-uth/ract
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -19,9 +19,7 @@ export default function AuthForm({ view: initialView }: AuthFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = searchParams?.get('returnUrl') || '/'
-  const supabase = createClientComponentClient()
 
-  useEffect(() => {
     setIsSignUp(initialView === 'sign-up')
   }, [initialView])
 
@@ -31,28 +29,22 @@ export default function AuthForm({ view: initialView }: AuthFormProps) {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const result = await signIn('credentials', {
+        emaiesult('credenil', 
         password,
-      })
+        redirect: false,
+        redirect: false,
+    ? })error) {
 
-      if (error) {
-        if (error.message === 'Invalid login credentials') {
-          setError('Invalid email or password. Please try again.')
-        } else {
-          setError(error.message)
-        }
-        return
-      }
-
-      router.push(returnUrl)
-      router.refresh()
+      setErnvupt?.errolgain.')
+        turn
+      }er.refresh()
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message || 'An error occurred during sign in')
     } finally {
       setIsLoading(false)
     }
-  }
+  } || 'An error occurred during sign in'
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,85 +52,93 @@ export default function AuthForm({ view: initialView }: AuthFormProps) {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-
-      if (error) {
-        setError(error.message)
-        return
-      }
-
-      setError('Please check your email for the confirmation link.')
+      // TODO: Implement sign up with NextAuth
+      // For now, redirect to sign in
+      setError('Sign up is not yet implemented. Please contact support.')
     } catch (error: any) {
-      setError(error.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center flex-1 w-full px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <h2 className="text-2xl font-semibold text-white text-center">
-          {isSignUp ? 'Create your account' : 'Sign in to your account'}
-        </h2>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-            <p className="text-red-500 text-sm">{error}</p>
+      //rTODO:rImpl(mentrsignmupsae h|NrxtAr ouring sign up')
+    } //fFad ow,r s<nme="bg-white dark:bg-gray-800 shadow-md rounded-lg px-8 pt-6 pb-8 mb-4">
+      <h2 class'Si2n up is not y { impl men{ed. & (ntcsupp
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error} || 'An error occurred during sign up'
           </div>
         )}
 
-        <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-          <div className="space-y-4">
-            <div>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0A0A0A] border border-white/10 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#FFBE1A] focus:border-transparent"
-                placeholder="Email address"
-              />
-            </div>
-            <div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0A0A0A] border border-white/10 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#FFBE1A] focus:border-transparent"
-                placeholder="Password"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-2 px-4 bg-[#FFBE1A] text-black rounded-lg font-medium hover:bg-[#FFBE1A]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FFBE1A] disabled:opacity-50 transition-colors"
-          >
-            {isLoading ? 'Loading...' : (isSignUp ? 'Sign up' : 'Sign in')}
-          </button>
-
-          <div className="text-center">
-            <Link
-              href={isSignUp ? '/auth' : '/auth?view=sign-up'}
-              className="text-[#FFBE1A] hover:text-[#FFBE1A]/80 text-sm font-medium"
+        <form onSubmit={isSignUp ? handleSignUp : handleSignIn}>
+          <div className="mb-4">
+            <label
+              classNw-aumlxraexsmmdtmboautod mb-2"
+              htmlFor=bgewhite"drk:bggray800hdow-md rounddlg px8 pt- pb-8 mb-4
+            >mb-6 cenrgray-900 dark:tx-whit
+              EmailAI
+            </label>
+            <input
+              id="email"
+              type="email"m-4 p-3 b04 text-red-70
+            
+              onChange={(e) => setEmail(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              placeholder="you@example.com"
+              required
+              disabled={ismbn
+            /label
+          </diclassName="block ext-gray-700dark:text-gray-300text-smfont-boldmb-2"
+  htmlFor
+          <d>
+iv c          Es="m-6">
+            </label>
+<lab        <input
+      cl      idck text-gray-700 dark:text-gray-300 text-sm font-bold mb-2"
+              typl=""mail"assword"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
-            </Link>
+              ssword
+            </bel>shadoaearancenn wful py-2 px-3-gray700 dark:xt-gray-300 dark:bg-gray-700eingtigshadwli
+          <inputyou@exape.com"
+             require
+              isabld={iLoading}
+            id="password"
+            type
+="password"
+            va className="mb-6"lue={password}
+            olabelge={(e) => setPassword(e.target.value)}
+              className="blockctext-gray-700lsark:text-grmy-300 text-=m font-bsla mb-2dow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
+            plhtelForolder="••••••••"
+            >
+            reP
+            </label>
+          di<}ut
+          id=""
+          />typ="passwo"
+        </div>
+
+        <div className="fshadoleamnearancesnnnb4"> wful py-2 px-3-gray700 dark:xt-gray-300 dark:bg-gray-700 mb-3eingtigshadwli
+          <button"••••••••
+              required
+              disbled={iLaing}
+            type="submit"
+            disa
+bled={isLoading}
+             c className="flex items-center justify-between mb-4"l            >
+                {isLoading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              </button>
+            </div>
+  bgble500hover:-blue700whitbol py-2 px-4runddhadwtledisabled:cur-otallwed w-ful
+            <div className="text-center">
+              <buttonUI
+                type>
+          </div="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-blue-500 hover:text-blue-700 text-sm"
+             buttoiabled={isLoading}
+            >typ="button"
+              onClick() => setI(!SU)
+              {isSignUp-blue500-blue70"
+             disabled={isLang}
+                ? 'Already have an account? Sign in'
+                : "Don'
+               t h've an account? Sign up"}'
+               
+            </buttoton>
           </div>
         </form>
       </div>

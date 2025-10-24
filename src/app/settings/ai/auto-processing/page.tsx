@@ -1,5 +1,6 @@
 'use client'
 
+// TODO: Migrate to PostgreSQL/Prisma - Supabase imports removed
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,6 @@ import {
   EyeOff
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
-import { supabase } from '@/lib/supabase'
 import { getAISetting, saveAISetting } from '@/lib/user-settings-service'
 
 // TypeScript Interfaces

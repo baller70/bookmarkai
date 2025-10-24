@@ -1,26 +1,23 @@
-import { createMiddlewareClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  // Temporarily disable authentication check
-  // const supabase = createMiddlewareClient({ req, res })
-
-  // Refresh session if expired - required for Server Components
-  // const { data: { session } } = await supabase.auth.getSession()
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const isAuthPage = req.nextUrl.pathname.startsWith('/auth')
+  const isDashboard = req.nextUrl.pathname.startsWith('/dashboard')
 
   // If user is not signed in and trying to access protected routes, redirect to login
-  // if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
-  //   return NextResponse.redirect(new URL('/auth', req.url))
-  // }
+  if (!token && isDashboard) {
+    return NextResponse.redirect(new URL('/auth', req.url))
+  }
 
   // If user is signed in and trying to access auth pages, redirect to dashboard
-  // if (session && (req.nextUrl.pathname === '/auth' || req.nextUrl.pathname === '/')) {
-  //   return NextResponse.redirect(new URL('/dashboard', req.url))
-  // }
+  if (token && isAuthPage) {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
 
-  return res
+  return NextResponse.next()
 }
 
 // Specify which routes should be handled by the middleware

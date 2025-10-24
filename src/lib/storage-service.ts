@@ -1,6 +1,4 @@
 // @ts-nocheck
-import { supabase } from '@/lib/supabase'
-
 const GITHUB_OWNER = process.env.NEXT_PUBLIC_GH_OWNER!
 const GITHUB_REPO = process.env.NEXT_PUBLIC_GH_REPO!
 const GITHUB_BRANCH = process.env.NEXT_PUBLIC_GH_BRANCH ?? 'main'
@@ -24,7 +22,8 @@ async function writeToFile<T>(userId: string, key: string, value: T): Promise<bo
     return false
   }
   try {
-    const { writeSettingToFile } = await import('./file-storage-server')
+    const { writeSettingToFile } = await // TODO: Migrate to PostgreSQL/Prisma - Supabase imports removed
+import('./file-storage-server')
     await writeSettingToFile(userId, key, value)
     console.log(`✅ Settings saved to file: ${userId}/${key}`)
     return true

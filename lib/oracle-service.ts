@@ -1,7 +1,4 @@
 // @ts-nocheck
-import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
-
 type OracleConversation = Database['public']['Tables']['oracle_conversations']['Row']
 type OracleMessage = Database['public']['Tables']['oracle_messages']['Row']
 type OracleSettings = Database['public']['Tables']['oracle_settings']['Row']
