@@ -72,10 +72,12 @@ const sections: Section[] = [
             code: `# App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# Database (PostgreSQL)
+DATABASE_URL=your_postgresql_connection_string
+
+# NextAuth
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
 
 # Stripe
 STRIPE_SECRET_KEY=your_stripe_secret_key

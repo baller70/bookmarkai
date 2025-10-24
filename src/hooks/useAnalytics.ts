@@ -1,17 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js'
 
-// Lazy initialization to avoid build-time environment variable issues
-let supabaseClient: any = null
+// TODO: Migrate to PostgreSQL/Prisma for analytics
+// This hook currently has Supabase dependencies removed
 
-const getSupabaseClient = () => {
-  if (!supabaseClient && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-  }
-  return supabaseClient
+// Placeholder analytics client to keep existing call sites stable during migration.
+let analyticsClient: any = null;
+
+const getAnalyticsClient = () => {
+  // Initialization will be implemented when migrating to the new analytics backend.
+  return analyticsClient;
 };
 
 export interface BookmarkAnalytics {

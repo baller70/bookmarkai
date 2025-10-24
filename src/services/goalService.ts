@@ -1,10 +1,7 @@
-// Goal and Goal Folder API service
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+ // Goal and Goal Folder API service
+// TODO: Migrate to PostgreSQL/Prisma for goal management
+// This service currently has Supabase dependencies removed
+// Need to implement with Prisma client and NextAuth session
 
 export interface GoalFolder {
   id: string
@@ -42,20 +39,9 @@ export interface Goal {
 
 class GoalService {
   private async getCurrentUserId(): Promise<string | null> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user?.id) {
-        console.log('🎯 Using authenticated user ID:', user.id)
-        return user.id
-      }
-    } catch (error) {
-      console.warn('🎯 Supabase auth not available, using fallback user ID. Error:', error.message)
-    }
-
-    // Fallback for development/demo mode when authentication is disabled
-    const fallbackUserId = 'dev-user-fixed-id'
-    console.log('🎯 Using fallback user ID:', fallbackUserId)
-    return fallbackUserId
+    // TODO: Implement with NextAuth session
+    console.warn('[goalService] getCurrentUserId not yet implemented with NextAuth')
+    return null
   }
 
   // Goal Folders API

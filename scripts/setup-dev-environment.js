@@ -34,15 +34,15 @@ try {
 // Step 3: Check for required environment variables
 console.log('🔧 Checking environment configuration...');
 const requiredEnvVars = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+  'DATABASE_URL',
+  'NEXTAUTH_SECRET'
 ];
 
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingVars.length > 0) {
-  console.log('⚠️  Missing environment variables (will use demo mode):');
+  console.log('⚠️  Missing environment variables:');
   missingVars.forEach(varName => console.log(`   - ${varName}`));
-  console.log('   Demo mode will be activated automatically.\n');
+  console.log('   Please configure these in your .env.local file.\n');
 } else {
   console.log('✅ Environment variables configured\n');
 }

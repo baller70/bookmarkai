@@ -16,9 +16,6 @@ const configSchema = z.object({
   
   // Database
   DATABASE_URL: z.string().optional(),
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_ANON_KEY: z.string().optional(),
-  SUPABASE_SERVICE_KEY: z.string().optional(),
   
   // Redis
   REDIS_URL: z.string().optional(),
@@ -232,11 +229,6 @@ export class ConfigManager {
   getDatabaseConfig() {
     return {
       url: this.config.DATABASE_URL,
-      supabase: {
-        url: this.config.SUPABASE_URL,
-        anonKey: this.config.SUPABASE_ANON_KEY,
-        serviceKey: this.config.SUPABASE_SERVICE_KEY,
-      },
     };
   }
 
