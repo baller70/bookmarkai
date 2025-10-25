@@ -1,5 +1,7 @@
 node_modules/
 .next/
+.build/
+.next-fresh/
 .env
 .env.local
 .env.production.local
@@ -8,3 +10,8 @@ node_modules/
 .DS_Store
 tsconfig.tsbuildinfo
 .vercel
+*.tsbuildinfo
+.yarn/
+.pnp.*
+app_backup/
+build-output.log

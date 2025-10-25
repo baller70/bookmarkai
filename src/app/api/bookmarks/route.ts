@@ -118,18 +118,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-      bookmark,
-      message: 'Bookmark created successfully'
-    }, { status: 201 })
-
-  } catch (error) {
-    console.error('Error creating bookmark:', error)
-    return NextResponse.json(
-      { error: 'Failed to create bookmark' },
-      { status: 500 }
-    )
-  }
-}
 
 export async function PUT(request: NextRequest) {
   try {
