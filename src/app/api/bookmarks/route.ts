@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { DbService } from '@/lib/db-service'
+import { authOptions } from '@/lib/auth/options'
+import { DatabaseService } from '@/lib/db-service'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined
 
-    const bookmarks = await DbService.getBookmarks(session.user.id, {
+    const bookmarks = await DatabaseService.getBookmarks(session.user.id, {
       category,
       search,
       limit,
@@ -37,13 +37,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
-    const { title, url, description, category, tags, folderId, enableAI } = body
+    const { title, url, description, category, tags, folderId } = body
 
     // Validate required fields
     if (!title?.trim()) {
@@ -71,12 +71,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate URL (prevent double submissions)
-    const existingBookmarks = await DbService.getBookmarks(session.user.id, {
+    const existingBookmarks = await DatabaseService.getBookmarks(session.user.id, {
       search: url,
       limit: 1
     })
 
-    if (existingBookmarks.some(b => b.url === url)) {
+    // Fetch high-quality favicon (best-effort)
+    let favicon: string | undefined
+    try {
+      const { FaviconService } = await import('@/lib/favicon-service')
+      const faviconResult = await FaviconService.getBestFavicon(url)
+      favicon = faviconResult?.url
+    } catch (error) {
+      console.error('Error fetching favicon:', error)
+      // Continue without favicon
+    }
+
+    if (existingBookmarks.some((b: any) => b.url === url)) {
       return NextResponse.json(
         { error: 'Bookmark with this URL already exists' },
         { status: 409 }
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create bookmark
-    const bookmark = await DbService.createBookmark(session.user.id, {
+    const bookmark = await DatabaseService.createBookmark(session.user.id, {
       title: title.trim(),
       url: url.trim(),
       description: description?.trim(),
@@ -93,11 +104,20 @@ export async function POST(request: NextRequest) {
       folderId: folderId || undefined
     })
 
-    // TODO: If enableAI is true, trigger AI processing in background
-    // This would be done via a queue or background job
-
     return NextResponse.json({
       success: true,
+      bookmark,
+      message: 'Bookmark created successfully'
+    }, { status: 201 })
+
+  } catch (error) {
+    console.error('Error creating bookmark:', error)
+    return NextResponse.json(
+      { error: 'Failed to create bookmark' },
+      { status: 500 }
+    )
+  }
+}
       bookmark,
       message: 'Bookmark created successfully'
     }, { status: 201 })

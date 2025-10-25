@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { AddBookmarkForm } from '@/components/dashboard/AddBookmarkForm';
-import { useBookmarks } from '@/hooks/useBookmarks';
+import { useBookmarks } from '@/src/hooks/useBookmarks';
 import { Plus } from 'lucide-react';
 
 export function AddBookmarkDialog() {
