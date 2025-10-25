@@ -1,0 +1,38 @@
+========================================
+Application Test Results
+Date: Sat Oct 25 05:24:43 EDT 2025
+URL: http://localhost:3001
+========================================
+
+
+PUBLIC PAGES:
+✗ FAIL - Home Page (Expected: 200, Got: 000)
+✗ FAIL - Login Page (Expected: 200, Got: 000)
+✗ FAIL - Features Page (Expected: 200, Got: 000)
+✗ FAIL - Pricing Page (Expected: 200, Got: 000)
+✗ FAIL - Docs Page (Expected: 200, Got: 000)
+
+AUTHENTICATION:
+✗ FAIL - Auth Page (Expected: 200, Got: 000)
+✗ FAIL - Reset Password (Expected: 200, Got: 000)
+
+PROTECTED ROUTES:
+✗ FAIL - Dashboard (Expected: 401, Got: 000)
+✗ FAIL - Dashboard Analytics (Expected: 401, Got: 000)
+✗ FAIL - Dashboard Billing (Expected: 401, Got: 000)
+✗ FAIL - Settings AI (Expected: 401, Got: 000)
+
+API ENDPOINTS:
+✗ FAIL - API Health (Expected: 200, Got: 000)
+✗ FAIL - NextAuth API (Expected: 200, Got: 000)
+
+CONTENT CHECKS:
+✗ FAIL - Login Page content check (Content not found)
+✗ FAIL - Home Page content check (Content not found)
+========================================
+SUMMARY:
+Total Tests: 15
+Passed: 0
+Failed: 15
+Success Rate: 0%
+========================================
