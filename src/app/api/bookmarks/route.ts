@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    await DbService.updateBookmark(id, session.user.id, data)
+    await DatabaseService.updateBookmark(id, session.user.id, data)
 
     return NextResponse.json({
       success: true,
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -171,7 +171,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    await DbService.deleteBookmark(id, session.user.id)
+    await DatabaseService.deleteBookmark(id, session.user.id)
 
     return NextResponse.json({
       success: true,
